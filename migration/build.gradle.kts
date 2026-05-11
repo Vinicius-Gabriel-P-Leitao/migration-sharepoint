@@ -36,6 +36,8 @@ dependencies {
 	implementation(libs.spring.boot.starter.actuator)
 	implementation(libs.spring.boot.starter.security)
 	implementation(libs.spring.boot.starter.data.jpa)
+	implementation(libs.hibernate.community.dialects)
+	implementation(libs.bucket4j.core)
 	implementation(libs.spring.boot.starter.quartz)
 	implementation(libs.spring.boot.starter.validation)
 	implementation(libs.spring.boot.starter.webmvc)

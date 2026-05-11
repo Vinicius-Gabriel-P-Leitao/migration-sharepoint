@@ -28,6 +28,7 @@ mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mys
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 mongodb-driver-sync = { module = "org.mongodb:mongodb-driver-sync", version.ref = "mongodb-driver" }
 bucket4j-core = { group = "com.bucket4j", name = "bucket4j-core", version.ref = "bucket4j" }
+hibernate-community-dialects = { module = "org.hibernate.orm:hibernate-community-dialects" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
