@@ -63,6 +63,7 @@ public class ConnectionRegistry {
                 }
               }
             });
+
     log.info("{} conexão(ões) carregada(s) do ambiente", registry.size());
   }
 

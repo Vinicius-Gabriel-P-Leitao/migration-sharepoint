@@ -25,9 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(
     name = "Connections",
     description =
-        "Registry em memória de connection strings. "
-            + "As conexões podem ser pré-carregadas via variáveis de ambiente (`CONN_URL_*` + `CONN_NAME_*`) "
-            + "ou registradas em runtime via esta API. A URL nunca é exposta nas respostas.")
+        "Registry em memória de connection strings. As conexões podem ser pré-carregadas via variáveis de ambiente (`CONN_URL_*` + `CONN_NAME_*`) ou registradas em runtime via esta API. A URL nunca é exposta nas respostas.")
 @RestController
 @RequestMapping("/v1/connections")
 @RequiredArgsConstructor
@@ -38,8 +36,7 @@ public class ConnectionController {
   @Operation(
       summary = "Listar conexões registradas",
       description =
-          "Retorna todas as conexões disponíveis no registry (chave + nome). "
-              + "A URL da connection string nunca é exposta.")
+          "Retorna todas as conexões disponíveis no registry (chave + nome). A URL da connection string nunca é exposta.")
   @GetMapping
   public List<ConnectionSummary> list() {
     return registry.list();
@@ -48,14 +45,15 @@ public class ConnectionController {
   @Operation(
       summary = "Registrar nova conexão",
       description =
-          "Registra uma connection string em memória. "
-              + "A `key` deve conter apenas letras maiúsculas, números e underscores (ex: `MYSQL_PROD`). "
-              + "Para conexões permanentes, prefira definir `CONN_URL_{KEY}` e `CONN_NAME_{KEY}` "
-              + "como variáveis de ambiente — elas sobrevivem a restarts do servidor.")
+          "Registra uma connection string em memória. A `key` deve conter apenas letras maiúsculas, números e underscores (ex: `MYSQL_PROD`). Para conexões permanentes, prefira definir `CONN_URL_{KEY}` e `CONN_NAME_{KEY}` como variáveis de ambiente — elas sobrevivem a restarts do servidor.")
   @ApiResponses({
     @ApiResponse(responseCode = "201", description = "Conexão registrada"),
-    @ApiResponse(responseCode = "400", description = "Payload inválido ou key com formato incorreto"),
-    @ApiResponse(responseCode = "409", description = "Key já registrada — use DELETE antes de re-registrar")
+    @ApiResponse(
+        responseCode = "400",
+        description = "Payload inválido ou key com formato incorreto"),
+    @ApiResponse(
+        responseCode = "409",
+        description = "Key já registrada — use DELETE antes de re-registrar")
   })
   @PostMapping
   public ResponseEntity<Void> register(@RequestBody @Valid ConnectionRequest request) {
@@ -66,9 +64,7 @@ public class ConnectionController {
   @Operation(
       summary = "Remover conexão",
       description =
-          "Remove a conexão do registry em memória. Jobs que referenciam esta key falharão na"
-              + " próxima execução. Não afeta variáveis de ambiente — na próxima startup a conexão"
-              + " será recarregada automaticamente se as env vars ainda estiverem definidas.")
+          "Remove a conexão do registry em memória. Jobs que referenciam esta key falharão na próxima execução. Não afeta variáveis de ambiente — na próxima startup a conexão será recarregada automaticamente se as env vars ainda estiverem definidas.")
   @ApiResponses({
     @ApiResponse(responseCode = "204", description = "Conexão removida"),
     @ApiResponse(responseCode = "404", description = "Key não encontrada")

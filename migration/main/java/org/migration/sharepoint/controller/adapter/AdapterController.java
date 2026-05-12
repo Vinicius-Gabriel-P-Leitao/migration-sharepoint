@@ -46,8 +46,7 @@ public class AdapterController {
   })
   @GetMapping("/{targetDb}/types")
   public AdapterTypesResponse types(
-      @Parameter(description = "Banco de destino (ex: MYSQL, POSTGRESQL, MONGODB)")
-          @PathVariable
+      @Parameter(description = "Banco de destino (ex: MYSQL, POSTGRESQL, MONGODB)") @PathVariable
           TargetDb targetDb) {
     MigrationWriter writer = writerRegistry.get(targetDb);
     return new AdapterTypesResponse(writer.canonicalMapping(), writer.nativeTypes());

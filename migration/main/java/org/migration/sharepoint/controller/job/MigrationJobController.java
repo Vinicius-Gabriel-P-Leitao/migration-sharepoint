@@ -50,8 +50,7 @@ public class MigrationJobController {
   @Operation(
       summary = "Criar novo job",
       description =
-          "Cria e agenda um novo job de migração. O campo `connectionKey` deve referenciar uma"
-              + " conexão previamente registrada em `POST /v1/connections`.")
+          "Cria e agenda um novo job de migração. O campo `connectionKey` deve referenciar uma conexão previamente registrada em `POST /v1/connections`.")
   @ApiResponses({
     @ApiResponse(responseCode = "201", description = "Job criado com sucesso"),
     @ApiResponse(responseCode = "400", description = "Payload inválido"),
@@ -77,7 +76,9 @@ public class MigrationJobController {
     return service.update(id, request);
   }
 
-  @Operation(summary = "Excluir job", description = "Remove o job do banco e cancela o agendamento no Quartz.")
+  @Operation(
+      summary = "Excluir job",
+      description = "Remove o job do banco e cancela o agendamento no Quartz.")
   @ApiResponses({
     @ApiResponse(responseCode = "204", description = "Job excluído"),
     @ApiResponse(responseCode = "404", description = "Job não encontrado")
@@ -91,8 +92,7 @@ public class MigrationJobController {
   @Operation(
       summary = "Disparar execução manual",
       description =
-          "Executa o job imediatamente, independente do agendamento configurado. Retorna 202 assim"
-              + " que o disparo é enfileirado — a execução ocorre de forma assíncrona.")
+          "Executa o job imediatamente, independente do agendamento configurado. Retorna 202 assim  que o disparo é enfileirado — a execução ocorre de forma assíncrona.")
   @ApiResponses({
     @ApiResponse(responseCode = "202", description = "Execução enfileirada"),
     @ApiResponse(responseCode = "404", description = "Job não encontrado")
