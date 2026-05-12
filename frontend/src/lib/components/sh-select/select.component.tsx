@@ -20,6 +20,7 @@ interface ShSelectProps {
   className?: string;
   children: React.ReactNode;
   size?: 'sm' | 'default';
+  position?: 'item-aligned' | 'popper';
 }
 
 export const ShSelect = ({
@@ -31,13 +32,14 @@ export const ShSelect = ({
   className,
   children,
   size,
+  position = 'item-aligned',
 }: ShSelectProps) => {
   return (
     <Select value={value} onValueChange={onValueChange} defaultValue={defaultValue}>
       <SelectTrigger className={cn('w-full', className)} disabled={disabled} size={size}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>{children}</SelectContent>
+      <SelectContent position={position}>{children}</SelectContent>
     </Select>
   );
 };

@@ -399,19 +399,20 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                         <td className="px-4 py-2">
                           <ShSelect
                             value={m.nativeType || NONE_NATIVE}
-                            onValueChange={(v) =>
-                              handleMappingChange(idx, 'nativeType', v === NONE_NATIVE ? '' : v)
+                            onValueChange={(nativeValue) =>
+                              handleMappingChange(idx, 'nativeType', nativeValue === NONE_NATIVE ? '' : nativeValue)
                             }
                             disabled={!m.included || loadingTypes || !adapterTypes}
                             size="sm"
                             placeholder="(canônico)"
+                            position="popper"
                           >
                             <ShSelectItem value={NONE_NATIVE}>
                               <span className="text-muted-foreground">(canônico)</span>
                             </ShSelectItem>
                             <ShSelectSeparator />
-                            {adapterTypes?.nativeTypes.map((t) => (
-                              <ShSelectItem key={t} value={t}>{t}</ShSelectItem>
+                            {adapterTypes?.nativeTypes.map((nativeType) => (
+                              <ShSelectItem key={nativeType} value={nativeType}>{nativeType}</ShSelectItem>
                             ))}
                           </ShSelect>
                         </td>

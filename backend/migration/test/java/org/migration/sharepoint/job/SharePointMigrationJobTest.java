@@ -108,9 +108,7 @@ class SharePointMigrationJobTest {
   void shouldSaveSuccessLogAfterSuccessfulMigration() throws Exception {
     MigrationJob job = buildJob(ScheduleType.MANUAL);
     List<Map<String, Object>> spData =
-        List.of(
-            Map.of("Title", "Row 1", "Amount", 10),
-            Map.of("Title", "Row 2", "Amount", 20));
+        List.of(Map.of("Title", "Row 1", "Amount", 10), Map.of("Title", "Row 2", "Amount", 20));
 
     MigrationWriter writer = mock(MigrationWriter.class);
     MigrationLog runningLog = MigrationLog.builder().id(1L).build();
@@ -204,10 +202,7 @@ class SharePointMigrationJobTest {
     when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
     when(logRepository.save(any())).thenReturn(runningLog);
     when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(
-            List.of(
-                Map.of("UnknownField1", "value1"),
-                Map.of("UnknownField2", "value2")));
+        .thenReturn(List.of(Map.of("UnknownField1", "value1"), Map.of("UnknownField2", "value2")));
 
     migrationJob.execute(context);
 
@@ -228,7 +223,8 @@ class SharePointMigrationJobTest {
     when(logRepository.save(any())).thenReturn(runningLog);
     when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
         .thenThrow(
-            new InfrastructureException(ErrorCode.GRAPH_UNAUTHORIZED, "Token rejeitado (HTTP 401)"));
+            new InfrastructureException(
+                ErrorCode.GRAPH_UNAUTHORIZED, "Token rejeitado (HTTP 401)"));
 
     migrationJob.execute(context);
 
@@ -244,7 +240,8 @@ class SharePointMigrationJobTest {
     when(logRepository.save(any())).thenReturn(runningLog);
     when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
         .thenThrow(
-            new InfrastructureException(ErrorCode.GRAPH_RATE_LIMITED, "Rate limit atingido (HTTP 429)"));
+            new InfrastructureException(
+                ErrorCode.GRAPH_RATE_LIMITED, "Rate limit atingido (HTTP 429)"));
 
     migrationJob.execute(context);
 
@@ -279,7 +276,8 @@ class SharePointMigrationJobTest {
     when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
     when(logRepository.save(any())).thenReturn(runningLog);
     RuntimeException exceptionWithNoMessage = new NullPointerException();
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenThrow(exceptionWithNoMessage);
+    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+        .thenThrow(exceptionWithNoMessage);
 
     assertThatThrownBy(() -> migrationJob.execute(context))
         .isInstanceOf(JobExecutionException.class);

@@ -36,11 +36,23 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
   private static final List<String> MYSQL_NATIVE_TYPES =
       List.of(
-          "TINYINT", "SMALLINT", "INT", "BIGINT",
-          "FLOAT", "DOUBLE", "DECIMAL",
+          "TINYINT",
+          "SMALLINT",
+          "INT",
+          "BIGINT",
+          "FLOAT",
+          "DOUBLE",
+          "DECIMAL",
           "TINYINT(1)",
-          "VARCHAR", "TEXT", "MEDIUMTEXT", "LONGTEXT",
-          "DATE", "DATETIME", "TIMESTAMP");
+          "VARCHAR(255)",
+          "VARCHAR(512)",
+          "VARCHAR(1024)",
+          "TEXT",
+          "MEDIUMTEXT",
+          "LONGTEXT",
+          "DATE",
+          "DATETIME",
+          "TIMESTAMP");
 
   private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP =
       Map.of(
@@ -138,7 +150,8 @@ public class MySqlMigrationWriter implements MigrationWriter {
       for (int i = 0; i < columns.size(); i++) {
         if (i > 0) columnDefs.append(", ");
         String col = columns.get(i);
-        String sqlType = columnTypes.containsKey(col) ? resolveType(col, columnTypes.get(col)) : "TEXT";
+        String sqlType =
+            columnTypes.containsKey(col) ? resolveType(col, columnTypes.get(col)) : "TEXT";
         columnDefs.append(stmt.enquoteIdentifier(col, true)).append(" ").append(sqlType);
       }
 
@@ -151,7 +164,8 @@ public class MySqlMigrationWriter implements MigrationWriter {
     if (mapping == null) {
       throw new BadRequestException(
           ErrorCode.BAD_REQUEST,
-          "Mapeamento ausente para a coluna '%s': informe 'type' ou 'nativeType'".formatted(column));
+          "Mapeamento ausente para a coluna '%s': informe 'type' ou 'nativeType'"
+              .formatted(column));
     }
 
     if (mapping.nativeType() != null && !mapping.nativeType().isBlank()) {
@@ -265,7 +279,9 @@ public class MySqlMigrationWriter implements MigrationWriter {
                   .formatted(tableName, constraintViolation.getMessage()));
         }
         log.warn(
-            "Conflito de integridade na tabela '{}': {}", tableName, constraintViolation.getMessage());
+            "Conflito de integridade na tabela '{}': {}",
+            tableName,
+            constraintViolation.getMessage());
         throw new ConflictException(
             ErrorCode.MIGRATION_CONFLICT,
             "Conflito de integridade ao inserir dados na tabela '%s': %s"
@@ -334,8 +350,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
   private void validateTableName(String tableName) {
     if (!tableName.matches("[a-zA-Z0-9_]+")) {
-      throw new BadRequestException(
-          ErrorCode.BAD_REQUEST, "Nome de tabela inválido: " + tableName);
+      throw new BadRequestException(ErrorCode.BAD_REQUEST, "Nome de tabela inválido: " + tableName);
     }
   }
 

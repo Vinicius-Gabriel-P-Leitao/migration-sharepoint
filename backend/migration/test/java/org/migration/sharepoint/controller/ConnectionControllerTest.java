@@ -36,7 +36,10 @@ class ConnectionControllerTest {
   void shouldReturnEmptyListWhenNoConnectionsRegistered() throws Exception {
     when(registry.list()).thenReturn(List.of());
 
-    mockMvc.perform(get("/v1/connections")).andExpect(status().isOk()).andExpect(content().json("[]"));
+    mockMvc
+        .perform(get("/v1/connections"))
+        .andExpect(status().isOk())
+        .andExpect(content().json("[]"));
   }
 
   @Test
@@ -88,7 +91,9 @@ class ConnectionControllerTest {
 
   @Test
   void shouldReturn409WhenKeyAlreadyRegistered() throws Exception {
-    doThrow(new ConflictException(ErrorCode.CONNECTION_KEY_CONFLICT, "Chave 'MYSQL_PROD' já registrada"))
+    doThrow(
+            new ConflictException(
+                ErrorCode.CONNECTION_KEY_CONFLICT, "Chave 'MYSQL_PROD' já registrada"))
         .when(registry)
         .register(anyString(), anyString(), anyString());
 
@@ -157,7 +162,9 @@ class ConnectionControllerTest {
 
   @Test
   void shouldReturn400WhenUrlIsInvalidScheme() throws Exception {
-    doThrow(new org.migration.sharepoint.infra.exception.custom.BadRequestException(ErrorCode.BAD_REQUEST, "URL inválida"))
+    doThrow(
+            new org.migration.sharepoint.infra.exception.custom.BadRequestException(
+                ErrorCode.BAD_REQUEST, "URL inválida"))
         .when(registry)
         .register(anyString(), anyString(), anyString());
 
@@ -180,21 +187,19 @@ class ConnectionControllerTest {
   void shouldDeleteConnectionAndReturn204() throws Exception {
     doNothing().when(registry).remove("MYSQL_PROD");
 
-    mockMvc
-        .perform(delete("/v1/connections/MYSQL_PROD"))
-        .andExpect(status().isNoContent());
+    mockMvc.perform(delete("/v1/connections/MYSQL_PROD")).andExpect(status().isNoContent());
 
     verify(registry).remove("MYSQL_PROD");
   }
 
   @Test
   void shouldReturn404WhenDeletingUnknownKey() throws Exception {
-    doThrow(new NotFoundException(ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'NONEXISTENT' não encontrada"))
+    doThrow(
+            new NotFoundException(
+                ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'NONEXISTENT' não encontrada"))
         .when(registry)
         .remove("NONEXISTENT");
 
-    mockMvc
-        .perform(delete("/v1/connections/NONEXISTENT"))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(delete("/v1/connections/NONEXISTENT")).andExpect(status().isNotFound());
   }
 }

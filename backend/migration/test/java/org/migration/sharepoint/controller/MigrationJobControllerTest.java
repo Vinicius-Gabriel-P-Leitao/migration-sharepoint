@@ -81,7 +81,9 @@ class MigrationJobControllerTest {
   void shouldReturnAllJobs() throws Exception {
     when(service.findAll())
         .thenReturn(
-            List.of(buildJobResponse(1L, ScheduleType.MANUAL), buildJobResponse(2L, ScheduleType.CRON)));
+            List.of(
+                buildJobResponse(1L, ScheduleType.MANUAL),
+                buildJobResponse(2L, ScheduleType.CRON)));
 
     mockMvc
         .perform(get("/v1/jobs"))
@@ -115,7 +117,8 @@ class MigrationJobControllerTest {
 
   @Test
   void shouldReturn404WhenJobNotFound() throws Exception {
-    when(service.findById(999L)).thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+    when(service.findById(999L))
+        .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
 
     mockMvc.perform(get("/v1/jobs/999")).andExpect(status().isNotFound());
   }
@@ -134,8 +137,7 @@ class MigrationJobControllerTest {
     when(service.create(any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
 
     mockMvc
-        .perform(
-            post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
+        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(1));
   }
@@ -209,11 +211,12 @@ class MigrationJobControllerTest {
   @Test
   void shouldReturn404WhenConnectionKeyNotRegistered() throws Exception {
     when(service.create(any()))
-        .thenThrow(new NotFoundException(ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'MYSQL_PROD' não encontrada"));
+        .thenThrow(
+            new NotFoundException(
+                ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'MYSQL_PROD' não encontrada"));
 
     mockMvc
-        .perform(
-            post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
+        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
         .andExpect(status().isNotFound());
   }
 
@@ -221,7 +224,9 @@ class MigrationJobControllerTest {
   void shouldReturn400WhenIntervalJobMissingRequiredFields() throws Exception {
     when(service.create(any()))
         .thenThrow(
-            new BadRequestException(ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue e intervalUnit"));
+            new BadRequestException(
+                ErrorCode.BAD_REQUEST,
+                "scheduleType INTERVAL requer intervalValue e intervalUnit"));
 
     String json =
         """
@@ -252,8 +257,7 @@ class MigrationJobControllerTest {
     when(service.update(eq(1L), any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
 
     mockMvc
-        .perform(
-            put("/v1/jobs/1").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
+        .perform(put("/v1/jobs/1").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(1));
   }
@@ -284,7 +288,9 @@ class MigrationJobControllerTest {
 
   @Test
   void shouldReturn404WhenDeletingNonExistentJob() throws Exception {
-    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado")).when(service).delete(999L);
+    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
+        .when(service)
+        .delete(999L);
 
     mockMvc.perform(delete("/v1/jobs/999")).andExpect(status().isNotFound());
   }
@@ -304,7 +310,9 @@ class MigrationJobControllerTest {
 
   @Test
   void shouldReturn404WhenRunningNonExistentJob() throws Exception {
-    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado")).when(service).runNow(999L);
+    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
+        .when(service)
+        .runNow(999L);
 
     mockMvc.perform(post("/v1/jobs/999/run")).andExpect(status().isNotFound());
   }
@@ -316,7 +324,13 @@ class MigrationJobControllerTest {
   @Test
   void shouldReturnLogsForJob() throws Exception {
     LogResponse log =
-        new LogResponse(10L, 1L, JobStatus.SUCCESS, LocalDateTime.now().minusMinutes(5), LocalDateTime.now(), null);
+        new LogResponse(
+            10L,
+            1L,
+            JobStatus.SUCCESS,
+            LocalDateTime.now().minusMinutes(5),
+            LocalDateTime.now(),
+            null);
     when(service.findLogs(1L)).thenReturn(List.of(log));
 
     mockMvc
@@ -338,7 +352,8 @@ class MigrationJobControllerTest {
 
   @Test
   void shouldReturn404WhenGettingLogsForMissingJob() throws Exception {
-    when(service.findLogs(999L)).thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+    when(service.findLogs(999L))
+        .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
 
     mockMvc.perform(get("/v1/jobs/999/logs")).andExpect(status().isNotFound());
   }

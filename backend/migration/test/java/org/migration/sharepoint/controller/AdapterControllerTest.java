@@ -85,7 +85,8 @@ class AdapterControllerTest {
                 ColumnType.BOOLEAN, "BOOLEAN",
                 ColumnType.DATE, "DATE",
                 ColumnType.DATETIME, "TIMESTAMP"));
-    when(writer.nativeTypes()).thenReturn(List.of("TEXT", "BIGINT", "NUMERIC", "BOOLEAN", "DATE", "TIMESTAMP"));
+    when(writer.nativeTypes())
+        .thenReturn(List.of("TEXT", "BIGINT", "NUMERIC", "BOOLEAN", "DATE", "TIMESTAMP"));
     when(writerRegistry.get(TargetDb.POSTGRESQL)).thenReturn(writer);
 
     mockMvc
@@ -98,7 +99,8 @@ class AdapterControllerTest {
   void shouldReturnMongodbTypes() throws Exception {
     MigrationWriter writer = mock(MigrationWriter.class);
     when(writer.canonicalMapping()).thenReturn(Map.of(ColumnType.TEXT, "String"));
-    when(writer.nativeTypes()).thenReturn(List.of("String", "Int32", "Int64", "Double", "Boolean", "Date", "ObjectId"));
+    when(writer.nativeTypes())
+        .thenReturn(List.of("String", "Int32", "Int64", "Double", "Boolean", "Date", "ObjectId"));
     when(writerRegistry.get(TargetDb.MONGODB)).thenReturn(writer);
 
     mockMvc
@@ -109,9 +111,7 @@ class AdapterControllerTest {
 
   @Test
   void shouldReturn400WhenTargetDbIsInvalid() throws Exception {
-    mockMvc
-        .perform(get("/v1/adapters/ORACLE/types"))
-        .andExpect(status().isBadRequest());
+    mockMvc.perform(get("/v1/adapters/ORACLE/types")).andExpect(status().isBadRequest());
   }
 
   @Test
@@ -119,11 +119,8 @@ class AdapterControllerTest {
     when(writerRegistry.get(TargetDb.MYSQL))
         .thenThrow(
             new InfrastructureException(
-                ErrorCode.TARGET_DB_NOT_SUPPORTED,
-                "Nenhum writer disponível para o banco: MYSQL"));
+                ErrorCode.TARGET_DB_NOT_SUPPORTED, "Nenhum writer disponível para o banco: MYSQL"));
 
-    mockMvc
-        .perform(get("/v1/adapters/MYSQL/types"))
-        .andExpect(status().isBadRequest());
+    mockMvc.perform(get("/v1/adapters/MYSQL/types")).andExpect(status().isBadRequest());
   }
 }

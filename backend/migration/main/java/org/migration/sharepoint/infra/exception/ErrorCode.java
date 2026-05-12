@@ -22,8 +22,11 @@ public enum ErrorCode {
   JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "Job não encontrado"),
   TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Tabela não encontrada no banco de destino"),
   MIGRATION_CONFLICT(HttpStatus.CONFLICT, "Conflito de integridade na migração"),
-  MIGRATION_NULL_VIOLATION(HttpStatus.CONFLICT, "Campo obrigatório recebeu valor nulo do SharePoint"),
-  MIGRATION_EMPTY_MAPPING(HttpStatus.BAD_REQUEST, "Nenhum campo do fieldMappings encontrado nos dados retornados pelo SharePoint"),
+  MIGRATION_NULL_VIOLATION(
+      HttpStatus.CONFLICT, "Campo obrigatório recebeu valor nulo do SharePoint"),
+  MIGRATION_EMPTY_MAPPING(
+      HttpStatus.BAD_REQUEST,
+      "Nenhum campo do fieldMappings encontrado nos dados retornados pelo SharePoint"),
 
   GRAPH_API_ERROR(HttpStatus.BAD_GATEWAY, "Erro ao comunicar com a Microsoft Graph API"),
   GRAPH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Token da Graph API inválido ou expirado"),

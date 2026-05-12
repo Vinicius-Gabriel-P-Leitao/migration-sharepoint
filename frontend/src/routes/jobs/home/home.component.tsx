@@ -25,7 +25,6 @@ import { Separator } from '@/lib/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/components/ui/tooltip';
 import { CreateJobDialog } from '@/routes/jobs/create/create-job.dialog';
 import { EditJobSheet } from '@/routes/jobs/edit/edit-job.sheet';
-import { JobLogsSheet } from '@/routes/jobs/logs/job-logs.sheet';
 import type { JobResponse, ScheduleType } from '../jobs.type';
 import {
   Play,
@@ -39,6 +38,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { JobLogsSheet } from '@/routes/jobs/logs/job-logs.sheet';
 
 const scheduleMeta: Record<ScheduleType, { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' }> = {
   MANUAL: { label: 'Manual', variant: 'secondary' },
@@ -289,7 +289,7 @@ export const JobsRoute = () => {
         jobId={logsJob?.id ?? null}
         jobName={logsJob?.name ?? ''}
         open={logsJob !== null}
-        onOpenChange={(open) => !open && setLogsJob(null)}
+        onOpenChange={(open: boolean) => !open && setLogsJob(null)}
       />
 
       {/* Delete confirmation */}

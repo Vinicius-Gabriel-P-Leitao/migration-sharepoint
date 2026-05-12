@@ -36,9 +36,7 @@ class SharePointControllerTest {
   void shouldResolveSharePointUrlAndReturn200() throws Exception {
     SharePointResolveResult result =
         new SharePointResolveResult(
-            "site-id-abc",
-            "list-id-xyz",
-            List.of("Author", "Created", "Modified", "Title"));
+            "site-id-abc", "list-id-xyz", List.of("Author", "Created", "Modified", "Title"));
 
     when(graphClient.resolveSharePointUrl(anyString())).thenReturn(result);
 
@@ -64,7 +62,8 @@ class SharePointControllerTest {
         .perform(
             post("/v1/sharepoint/resolve")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
+                .content(
+                    """
                     {"url":""}
                     """))
         .andExpect(status().isBadRequest());
@@ -76,9 +75,7 @@ class SharePointControllerTest {
   void shouldReturn400WhenUrlIsMissing() throws Exception {
     mockMvc
         .perform(
-            post("/v1/sharepoint/resolve")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
+            post("/v1/sharepoint/resolve").contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest());
   }
 
@@ -159,8 +156,7 @@ class SharePointControllerTest {
   @Test
   void shouldReturn504WhenGraphApiTimesOut() throws Exception {
     when(graphClient.resolveSharePointUrl(anyString()))
-        .thenThrow(
-            new InfrastructureException(ErrorCode.GRAPH_TIMEOUT, "Timeout na Graph API"));
+        .thenThrow(new InfrastructureException(ErrorCode.GRAPH_TIMEOUT, "Timeout na Graph API"));
 
     mockMvc
         .perform(

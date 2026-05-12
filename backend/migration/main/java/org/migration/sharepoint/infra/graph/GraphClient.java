@@ -258,8 +258,7 @@ public class GraphClient {
     SiteResponse response = authenticatedGet(url, SiteResponse.class, context);
     if (response == null || response.id() == null) {
       throw new InfrastructureException(
-          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
-          "Site não encontrado para %s".formatted(context));
+          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND, "Site não encontrado para %s".formatted(context));
     }
     return response.id();
   }
@@ -270,8 +269,7 @@ public class GraphClient {
     ListMetaResponse response = authenticatedGet(url, ListMetaResponse.class, context);
     if (response == null || response.id() == null) {
       throw new InfrastructureException(
-          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
-          "Lista não encontrada: %s".formatted(context));
+          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND, "Lista não encontrada: %s".formatted(context));
     }
     return response.id();
   }

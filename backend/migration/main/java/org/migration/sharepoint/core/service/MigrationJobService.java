@@ -16,7 +16,6 @@ import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
 import org.migration.sharepoint.infra.connection.ConnectionRegistry;
-import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
@@ -92,8 +91,7 @@ public class MigrationJobService {
       case INTERVAL -> {
         if (request.intervalValue() == null || request.intervalUnit() == null) {
           throw new BadRequestException(
-              ErrorCode.BAD_REQUEST,
-              "scheduleType INTERVAL requer intervalValue e intervalUnit");
+              ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue e intervalUnit");
         }
       }
       case CRON -> {

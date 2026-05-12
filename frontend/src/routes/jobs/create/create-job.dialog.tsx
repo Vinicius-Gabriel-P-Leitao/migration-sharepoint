@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useCreateJob } from '@/lib/hooks/jobs.hook';
 import { sharepointService, type SharePointResolveResponse } from '@/routes/sharepoint/services/sharepoint.service';
@@ -88,6 +88,12 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
   const canonicalTypes: CanonicalType[] = adapterTypes
     ? (Object.keys(adapterTypes.canonical) as CanonicalType[])
     : FALLBACK_CANONICAL;
+
+  useEffect(() => {
+    if (connections && connections.length > 0 && config.connectionKey === '') {
+      setConfig((p) => ({ ...p, connectionKey: connections[0].key }));
+    }
+  }, [connections]);
 
   const resolveMutation = useMutation({
     mutationFn: sharepointService.resolve,
@@ -292,9 +298,9 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
           </DialogHeader>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-8 py-6 space-y-8">
+        {/* Body: config fixo + tabela flexível */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="px-8 pt-6 pb-3 shrink-0 space-y-6">
 
             {/* ── Configuração ── */}
             <section className="space-y-4">
@@ -429,33 +435,37 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
 
             <div className="border-t" />
 
-            {/* ── Mapeamento de Campos ── */}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Mapeamento de Campos
-                </h3>
-                <div className="flex items-center gap-3">
-                  {loadingTypes && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Carregando tipos de {config.targetDb}...
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {selectedMappings.length} / {mappings.length} campos selecionados
+          </div>
+
+          {/* ── Mapeamento de Campos ── */}
+          <div className="px-8 pb-2 shrink-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Mapeamento de Campos
+              </h3>
+              <div className="flex items-center gap-3">
+                {loadingTypes && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Carregando tipos de {config.targetDb}...
                   </span>
-                </div>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {selectedMappings.length} / {mappings.length} campos selecionados
+                </span>
               </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O <strong>Tipo Nativo</strong> tem precedência sobre o Canônico quando definido — use para controle
+              fino (ex: <code className="font-mono bg-muted px-1 rounded">VARCHAR(255)</code>,{' '}
+              <code className="font-mono bg-muted px-1 rounded">DECIMAL(15,2)</code>).
+            </p>
+          </div>
 
-              <p className="text-xs text-muted-foreground">
-                O <strong>Tipo Nativo</strong> tem precedência sobre o Canônico quando definido — use para controle
-                fino (ex: <code className="font-mono bg-muted px-1 rounded">VARCHAR(255)</code>,{' '}
-                <code className="font-mono bg-muted px-1 rounded">DECIMAL(15,2)</code>).
-              </p>
-
-              <div className="rounded-lg border overflow-hidden">
-                <div className="overflow-y-auto" style={{ maxHeight: '42vh' }}>
+          {/* Tabela: preenche o espaço restante */}
+          <div className="flex-1 min-h-0 px-8 pb-6 flex flex-col">
+            <div className="flex-1 min-h-0 rounded-lg border overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm border-b">
                       <tr>
@@ -554,24 +564,25 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                           <td className="px-4 py-2.5">
                             <ShSelect
                               value={m.nativeType || NONE_NATIVE}
-                              onValueChange={(v) =>
+                              onValueChange={(nativeValue) =>
                                 handleMappingChange(
                                   idx,
                                   'nativeType',
-                                  v === NONE_NATIVE ? '' : v
+                                  nativeValue === NONE_NATIVE ? '' : nativeValue
                                 )
                               }
                               disabled={!m.included || loadingTypes || !adapterTypes}
                               size="sm"
                               placeholder="(usar canônico)"
+                              position="popper"
                             >
                               <ShSelectItem value={NONE_NATIVE}>
                                 <span className="text-muted-foreground">(usar canônico)</span>
                               </ShSelectItem>
                               <ShSelectSeparator />
-                              {adapterTypes?.nativeTypes.map((t) => (
-                                <ShSelectItem key={t} value={t}>
-                                  {t}
+                              {adapterTypes?.nativeTypes.map((nativeType) => (
+                                <ShSelectItem key={nativeType} value={nativeType}>
+                                  {nativeType}
                                 </ShSelectItem>
                               ))}
                             </ShSelect>
@@ -582,10 +593,8 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                   </table>
                 </div>
               </div>
-            </section>
+            </div>
           </div>
-        </div>
-
         {/* Footer */}
         <div className="shrink-0 border-t px-8 py-4">
           <DialogFooter>
