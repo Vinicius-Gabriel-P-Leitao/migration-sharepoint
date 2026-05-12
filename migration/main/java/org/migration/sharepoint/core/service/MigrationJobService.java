@@ -16,7 +16,9 @@ import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
 import org.migration.sharepoint.infra.connection.ConnectionRegistry;
+import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.infra.exception.ErrorCode;
+import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class MigrationJobService {
 
   @Transactional
   public JobResponse create(JobRequest request) {
+    validateScheduleFields(request);
     connectionRegistry.resolveUrl(request.connectionKey());
     MigrationJob job = jobRepository.save(fromRequest(request));
     quartzSchedulerService.schedule(job);
@@ -48,6 +51,7 @@ public class MigrationJobService {
 
   @Transactional
   public JobResponse update(Long id, JobRequest request) {
+    validateScheduleFields(request);
     connectionRegistry.resolveUrl(request.connectionKey());
     MigrationJob job = findOrThrow(id);
     applyRequest(job, request);
@@ -81,6 +85,25 @@ public class MigrationJobService {
                     log.getFinishedAt(),
                     log.getErrorMessage()))
         .toList();
+  }
+
+  private void validateScheduleFields(JobRequest request) {
+    switch (request.scheduleType()) {
+      case INTERVAL -> {
+        if (request.intervalValue() == null || request.intervalUnit() == null) {
+          throw new BadRequestException(
+              ErrorCode.BAD_REQUEST,
+              "scheduleType INTERVAL requer intervalValue e intervalUnit");
+        }
+      }
+      case CRON -> {
+        if (request.cronExpression() == null || request.cronExpression().isBlank()) {
+          throw new BadRequestException(
+              ErrorCode.BAD_REQUEST, "scheduleType CRON requer cronExpression");
+        }
+      }
+      case MANUAL, CONTINUOUS -> {}
+    }
   }
 
   private MigrationJob findOrThrow(Long id) {
