@@ -7,20 +7,13 @@
  */
 package org.migration.sharepoint.infra.writer;
 
+import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.TargetDb;
+import org.migration.sharepoint.data.model.FieldMapping;
 
 import java.util.List;
 import java.util.Map;
 
-/**
- * Port: contrato que todos os adapters de banco de destino devem implementar.
- *
- * <p>A operação {@link #write} realiza full replace — trunca o destino e reimporta todos os dados.
- *
- * <p>Convenção para {@code fieldMappings}: adapters SQL validam que nenhum nome de coluna
- * contenha ponto ('.'), pois isso é inválido em SQL. O adapter MongoDB interpreta ponto como
- * separador de caminho de documento aninhado (ex: {@code "metadata.title"}).
- */
 public interface MigrationWriter {
 
     boolean supports(TargetDb targetDb);
@@ -28,9 +21,21 @@ public interface MigrationWriter {
     /**
      * Executa full replace: apaga todo o conteúdo do destino e insere {@code rows}.
      *
-     * @param connectionString JDBC URL (SQL) ou connection string (MongoDB) com credenciais embutidas
+     * @param connectionString JDBC URL (SQL) ou connection string (MongoDB)
      * @param targetName       nome da tabela (SQL) ou collection (MongoDB)
-     * @param rows             linhas já mapeadas — chave = nome da coluna/campo de destino
+     * @param rows             linhas já mapeadas — chave = nome da coluna de destino
+     * @param columnTypes      mapa de coluna de destino → FieldMapping com tipo declarado
      */
-    void write(String connectionString, String targetName, List<Map<String, Object>> rows);
+    void write(String connectionString, String targetName,
+               List<Map<String, Object>> rows, Map<String, FieldMapping> columnTypes);
+
+    /**
+     * Tipos nativos suportados por este adapter (ex: "VARCHAR", "BIGINT", "TEXT").
+     */
+    List<String> nativeTypes();
+
+    /**
+     * Mapeamento de tipos canônicos para os tipos nativos deste adapter.
+     */
+    Map<ColumnType, String> canonicalMapping();
 }

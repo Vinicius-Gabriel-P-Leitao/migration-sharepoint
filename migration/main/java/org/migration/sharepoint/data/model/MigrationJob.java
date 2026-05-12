@@ -16,6 +16,7 @@ import org.migration.sharepoint.infra.converter.MapToJsonConverter;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.migration.sharepoint.data.model.FieldMapping;
 
 @Entity
 @Table(name = "migration_jobs")
@@ -43,10 +44,10 @@ public class MigrationJob {
     @Column(nullable = false)
     private Integer pageSize;
 
-    // SharePoint field → DB column mapping  {"SpField": "db_column"}
+    // {"SpField": {"column": "db_col", "type": CANONICAL, "nativeType": "NATIVE"}}
     @Convert(converter = MapToJsonConverter.class)
     @Column(columnDefinition = "TEXT", nullable = false)
-    private Map<String, String> fieldMappings;
+    private Map<String, FieldMapping> fieldMappings;
 
     // Target database
     @Enumerated(EnumType.STRING)

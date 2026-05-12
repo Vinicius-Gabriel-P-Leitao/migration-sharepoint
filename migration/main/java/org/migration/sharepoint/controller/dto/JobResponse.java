@@ -10,6 +10,7 @@ package org.migration.sharepoint.controller.dto;
 import org.migration.sharepoint.data.enums.IntervalUnit;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
+import org.migration.sharepoint.data.model.FieldMapping;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -20,7 +21,7 @@ public record JobResponse(
         String siteId,
         String listId,
         Integer pageSize,
-        Map<String, String> fieldMappings,
+        Map<String, FieldMapping> fieldMappings,
         TargetDb targetDb,
         String connectionString,
         String tableName,

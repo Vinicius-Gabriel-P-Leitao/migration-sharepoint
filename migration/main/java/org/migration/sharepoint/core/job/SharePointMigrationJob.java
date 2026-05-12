@@ -14,6 +14,7 @@ import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.model.MigrationLog;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
+import org.migration.sharepoint.data.model.FieldMapping;
 import org.migration.sharepoint.infra.exception.base.AppException;
 import org.migration.sharepoint.infra.graph.GraphClient;
 import org.migration.sharepoint.infra.writer.MigrationWriter;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @DisallowConcurrentExecution
@@ -76,8 +78,11 @@ public class SharePointMigrationJob implements Job {
 
             List<Map<String, Object>> mapped = applyFieldMapping(raw, job.getFieldMappings());
 
+            Map<String, FieldMapping> columnTypes = job.getFieldMappings().values().stream()
+                    .collect(Collectors.toMap(FieldMapping::column, fm -> fm));
+
             MigrationWriter writer = writerRegistry.get(job.getTargetDb());
-            writer.write(job.getConnectionString(), job.getTableName(), mapped);
+            writer.write(job.getConnectionString(), job.getTableName(), mapped, columnTypes);
 
             migrationLog.setStatus(JobStatus.SUCCESS);
             migrationLog.setFinishedAt(LocalDateTime.now());
@@ -109,12 +114,12 @@ public class SharePointMigrationJob implements Job {
     }
 
     private List<Map<String, Object>> applyFieldMapping(List<Map<String, Object>> rows,
-            Map<String, String> fieldMappings) {
+            Map<String, FieldMapping> fieldMappings) {
         return rows.stream().map(row -> {
             Map<String, Object> out = new LinkedHashMap<>();
-            fieldMappings.forEach((spField, targetKey) -> {
+            fieldMappings.forEach((spField, mapping) -> {
                 if (row.containsKey(spField)) {
-                    out.put(targetKey, row.get(spField));
+                    out.put(mapping.column(), row.get(spField));
                 }
             });
             return out;

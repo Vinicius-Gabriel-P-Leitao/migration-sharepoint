@@ -11,6 +11,7 @@ import jakarta.validation.constraints.*;
 import org.migration.sharepoint.data.enums.IntervalUnit;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
+import org.migration.sharepoint.data.model.FieldMapping;
 
 import java.util.Map;
 
@@ -19,11 +20,10 @@ public record JobRequest(
         @NotBlank String siteId,
         @NotBlank String listId,
 
-        // Itens por página na Graph API. Máximo suportado pelo SharePoint: 5000.
         @NotNull @Min(1) @Max(5000) Integer pageSize,
 
-        // {"SharePointField": "db_column"}
-        @NotEmpty Map<String, String> fieldMappings,
+        // {"SharePointField": {"column": "db_col", "type": CANONICAL, "nativeType": "NATIVE"}}
+        @NotEmpty Map<String, FieldMapping> fieldMappings,
 
         @NotNull TargetDb targetDb,
         @NotBlank String connectionString,
