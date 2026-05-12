@@ -7,35 +7,33 @@
  */
 package org.migration.sharepoint.infra.writer;
 
+import java.util.List;
+import java.util.Map;
 import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.data.model.FieldMapping;
 
-import java.util.List;
-import java.util.Map;
-
 public interface MigrationWriter {
 
-    boolean supports(TargetDb targetDb);
+  boolean supports(TargetDb targetDb);
 
-    /**
-     * Executa full replace: apaga todo o conteúdo do destino e insere {@code rows}.
-     *
-     * @param connectionString JDBC URL (SQL) ou connection string (MongoDB)
-     * @param targetName       nome da tabela (SQL) ou collection (MongoDB)
-     * @param rows             linhas já mapeadas — chave = nome da coluna de destino
-     * @param columnTypes      mapa de coluna de destino → FieldMapping com tipo declarado
-     */
-    void write(String connectionString, String targetName,
-               List<Map<String, Object>> rows, Map<String, FieldMapping> columnTypes);
+  /**
+   * Executa full replace: apaga todo o conteúdo do destino e insere {@code rows}.
+   *
+   * @param connectionString JDBC URL (SQL) ou connection string (MongoDB)
+   * @param targetName nome da tabela (SQL) ou collection (MongoDB)
+   * @param rows linhas já mapeadas — chave = nome da coluna de destino
+   * @param columnTypes mapa de coluna de destino → FieldMapping com tipo declarado
+   */
+  void write(
+      String connectionString,
+      String targetName,
+      List<Map<String, Object>> rows,
+      Map<String, FieldMapping> columnTypes);
 
-    /**
-     * Tipos nativos suportados por este adapter (ex: "VARCHAR", "BIGINT", "TEXT").
-     */
-    List<String> nativeTypes();
+  /** Tipos nativos suportados por este adapter (ex: "VARCHAR", "BIGINT", "TEXT"). */
+  List<String> nativeTypes();
 
-    /**
-     * Mapeamento de tipos canônicos para os tipos nativos deste adapter.
-     */
-    Map<ColumnType, String> canonicalMapping();
+  /** Mapeamento de tipos canônicos para os tipos nativos deste adapter. */
+  Map<ColumnType, String> canonicalMapping();
 }

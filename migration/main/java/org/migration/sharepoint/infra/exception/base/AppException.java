@@ -12,10 +12,10 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 
 @Getter
 public abstract class AppException extends RuntimeException {
-    private final ErrorCode errorCode;
+  private final ErrorCode errorCode;
 
-    protected AppException(ErrorCode errorCode, String message) {
-        super(message);
-        this.errorCode = errorCode;
-    }
+  protected AppException(ErrorCode errorCode, String message) {
+    super(message);
+    this.errorCode = errorCode;
+  }
 }

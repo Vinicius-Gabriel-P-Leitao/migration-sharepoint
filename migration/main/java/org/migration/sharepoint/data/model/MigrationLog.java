@@ -8,10 +8,9 @@
 package org.migration.sharepoint.data.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.*;
 import org.migration.sharepoint.data.enums.JobStatus;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "migration_logs")
@@ -22,23 +21,23 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class MigrationLog {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id", nullable = false)
-    private MigrationJob job;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "job_id", nullable = false)
+  private MigrationJob job;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private JobStatus status;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private JobStatus status;
 
-    @Column(nullable = false)
-    private LocalDateTime startedAt;
+  @Column(nullable = false)
+  private LocalDateTime startedAt;
 
-    private LocalDateTime finishedAt;
+  private LocalDateTime finishedAt;
 
-    @Column(columnDefinition = "TEXT")
-    private String errorMessage;
+  @Column(columnDefinition = "TEXT")
+  private String errorMessage;
 }

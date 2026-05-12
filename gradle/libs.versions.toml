@@ -1,5 +1,6 @@
 [versions]
 spring-boot = "4.0.6"
+spotless = "8.4.0"
 spring-dependency-management = "1.1.7"
 springdoc = "3.0.2"
 mysql-connector = "9.7.0"
@@ -33,3 +34,4 @@ hibernate-community-dialects = { module = "org.hibernate.orm:hibernate-community
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

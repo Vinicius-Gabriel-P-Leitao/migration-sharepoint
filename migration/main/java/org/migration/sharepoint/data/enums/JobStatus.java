@@ -8,7 +8,7 @@
 package org.migration.sharepoint.data.enums;
 
 public enum JobStatus {
-    RUNNING,
-    SUCCESS,
-    FAILED
+  RUNNING,
+  SUCCESS,
+  FAILED
 }

@@ -8,7 +8,7 @@
 package org.migration.sharepoint.data.enums;
 
 public enum IntervalUnit {
-    MINUTES,
-    HOURS,
-    DAYS
+  MINUTES,
+  HOURS,
+  DAYS
 }

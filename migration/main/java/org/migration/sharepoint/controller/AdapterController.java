@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdapterController {
 
-    private final MigrationWriterRegistry writerRegistry;
+  private final MigrationWriterRegistry writerRegistry;
 
-    @GetMapping("/{targetDb}/types")
-    public AdapterTypesResponse types(@PathVariable TargetDb targetDb) {
-        MigrationWriter writer = writerRegistry.get(targetDb);
-        return new AdapterTypesResponse(writer.canonicalMapping(), writer.nativeTypes());
-    }
+  @GetMapping("/{targetDb}/types")
+  public AdapterTypesResponse types(@PathVariable TargetDb targetDb) {
+    MigrationWriter writer = writerRegistry.get(targetDb);
+    return new AdapterTypesResponse(writer.canonicalMapping(), writer.nativeTypes());
+  }
 }

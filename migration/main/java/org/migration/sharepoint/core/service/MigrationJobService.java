@@ -7,6 +7,7 @@
  */
 package org.migration.sharepoint.core.service;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.controller.dto.JobRequest;
 import org.migration.sharepoint.controller.dto.JobResponse;
@@ -19,119 +20,122 @@ import org.migration.sharepoint.infra.exception.custom.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class MigrationJobService {
 
-    private final MigrationJobRepository jobRepository;
-    private final MigrationLogRepository logRepository;
-    private final QuartzSchedulerService quartzSchedulerService;
+  private final MigrationJobRepository jobRepository;
+  private final MigrationLogRepository logRepository;
+  private final QuartzSchedulerService quartzSchedulerService;
 
-    public List<JobResponse> findAll() {
-        return jobRepository.findAll().stream().map(this::toResponse).toList();
-    }
+  public List<JobResponse> findAll() {
+    return jobRepository.findAll().stream().map(this::toResponse).toList();
+  }
 
-    public JobResponse findById(Long id) {
-        return toResponse(findOrThrow(id));
-    }
+  public JobResponse findById(Long id) {
+    return toResponse(findOrThrow(id));
+  }
 
-    @Transactional
-    public JobResponse create(JobRequest request) {
-        MigrationJob job = jobRepository.save(fromRequest(request));
-        quartzSchedulerService.schedule(job);
-        return toResponse(job);
-    }
+  @Transactional
+  public JobResponse create(JobRequest request) {
+    MigrationJob job = jobRepository.save(fromRequest(request));
+    quartzSchedulerService.schedule(job);
+    return toResponse(job);
+  }
 
-    @Transactional
-    public JobResponse update(Long id, JobRequest request) {
-        MigrationJob job = findOrThrow(id);
-        applyRequest(job, request);
-        job = jobRepository.save(job);
-        quartzSchedulerService.reschedule(job);
-        return toResponse(job);
-    }
+  @Transactional
+  public JobResponse update(Long id, JobRequest request) {
+    MigrationJob job = findOrThrow(id);
+    applyRequest(job, request);
+    job = jobRepository.save(job);
+    quartzSchedulerService.reschedule(job);
+    return toResponse(job);
+  }
 
-    @Transactional
-    public void delete(Long id) {
-        MigrationJob job = findOrThrow(id);
-        quartzSchedulerService.unschedule(id);
-        jobRepository.delete(job);
-    }
+  @Transactional
+  public void delete(Long id) {
+    MigrationJob job = findOrThrow(id);
+    quartzSchedulerService.unschedule(id);
+    jobRepository.delete(job);
+  }
 
-    public void runNow(Long id) {
-        findOrThrow(id);
-        quartzSchedulerService.triggerNow(id);
-    }
+  public void runNow(Long id) {
+    findOrThrow(id);
+    quartzSchedulerService.triggerNow(id);
+  }
 
-    public List<LogResponse> findLogs(Long id) {
-        findOrThrow(id);
-        return logRepository.findByJobIdOrderByStartedAtDesc(id).stream()
-                .map(log -> new LogResponse(
-                        log.getId(),
-                        log.getJob().getId(),
-                        log.getStatus(),
-                        log.getStartedAt(),
-                        log.getFinishedAt(),
-                        log.getErrorMessage()))
-                .toList();
-    }
+  public List<LogResponse> findLogs(Long id) {
+    findOrThrow(id);
+    return logRepository.findByJobIdOrderByStartedAtDesc(id).stream()
+        .map(
+            log ->
+                new LogResponse(
+                    log.getId(),
+                    log.getJob().getId(),
+                    log.getStatus(),
+                    log.getStartedAt(),
+                    log.getFinishedAt(),
+                    log.getErrorMessage()))
+        .toList();
+  }
 
-    private MigrationJob findOrThrow(Long id) {
-        return jobRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(ErrorCode.JOB_NOT_FOUND,
-                        "Job id=%d não encontrado".formatted(id)));
-    }
+  private MigrationJob findOrThrow(Long id) {
+    return jobRepository
+        .findById(id)
+        .orElseThrow(
+            () ->
+                new NotFoundException(
+                    ErrorCode.JOB_NOT_FOUND, "Job id=%d não encontrado".formatted(id)));
+  }
 
-    private MigrationJob fromRequest(JobRequest request) {
-        return MigrationJob.builder()
-                .name(request.name())
-                .siteId(request.siteId())
-                .listId(request.listId())
-                .pageSize(request.pageSize())
-                .fieldMappings(request.fieldMappings())
-                .targetDb(request.targetDb())
-                .connectionString(request.connectionString())
-                .tableName(request.tableName())
-                .scheduleType(request.scheduleType())
-                .intervalValue(request.intervalValue())
-                .intervalUnit(request.intervalUnit())
-                .cronExpression(request.cronExpression())
-                .build();
-    }
+  private MigrationJob fromRequest(JobRequest request) {
+    return MigrationJob.builder()
+        .name(request.name())
+        .siteId(request.siteId())
+        .listId(request.listId())
+        .pageSize(request.pageSize())
+        .fieldMappings(request.fieldMappings())
+        .targetDb(request.targetDb())
+        .connectionString(request.connectionString())
+        .tableName(request.tableName())
+        .scheduleType(request.scheduleType())
+        .intervalValue(request.intervalValue())
+        .intervalUnit(request.intervalUnit())
+        .cronExpression(request.cronExpression())
+        .build();
+  }
 
-    private void applyRequest(MigrationJob job, JobRequest request) {
-        job.setName(request.name());
-        job.setSiteId(request.siteId());
-        job.setListId(request.listId());
-        job.setPageSize(request.pageSize());
-        job.setFieldMappings(request.fieldMappings());
-        job.setTargetDb(request.targetDb());
-        job.setConnectionString(request.connectionString());
-        job.setTableName(request.tableName());
-        job.setScheduleType(request.scheduleType());
-        job.setIntervalValue(request.intervalValue());
-        job.setIntervalUnit(request.intervalUnit());
-        job.setCronExpression(request.cronExpression());
-    }
+  private void applyRequest(MigrationJob job, JobRequest request) {
+    job.setName(request.name());
+    job.setSiteId(request.siteId());
+    job.setListId(request.listId());
+    job.setPageSize(request.pageSize());
+    job.setFieldMappings(request.fieldMappings());
+    job.setTargetDb(request.targetDb());
+    job.setConnectionString(request.connectionString());
+    job.setTableName(request.tableName());
+    job.setScheduleType(request.scheduleType());
+    job.setIntervalValue(request.intervalValue());
+    job.setIntervalUnit(request.intervalUnit());
+    job.setCronExpression(request.cronExpression());
+  }
 
-    private JobResponse toResponse(MigrationJob job) {
-        return new JobResponse(
-                job.getId(),
-                job.getName(),
-                job.getSiteId(),
-                job.getListId(),
-                job.getPageSize(),
-                job.getFieldMappings(),
-                job.getTargetDb(),
-                job.getConnectionString(),
-                job.getTableName(),
-                job.getScheduleType(),
-                job.getIntervalValue(),
-                job.getIntervalUnit(),
-                job.getCronExpression(),
-                job.getCreatedAt(),
-                job.getUpdatedAt());
-    }
+  private JobResponse toResponse(MigrationJob job) {
+    return new JobResponse(
+        job.getId(),
+        job.getName(),
+        job.getSiteId(),
+        job.getListId(),
+        job.getPageSize(),
+        job.getFieldMappings(),
+        job.getTargetDb(),
+        job.getConnectionString(),
+        job.getTableName(),
+        job.getScheduleType(),
+        job.getIntervalValue(),
+        job.getIntervalUnit(),
+        job.getCronExpression(),
+        job.getCreatedAt(),
+        job.getUpdatedAt());
+  }
 }

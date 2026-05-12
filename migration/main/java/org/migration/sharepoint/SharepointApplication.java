@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SharepointApplication {
 
-	static void main(String[] args) {
-		SpringApplication.run(SharepointApplication.class, args);
-	}
-
+  static void main(String[] args) {
+    SpringApplication.run(SharepointApplication.class, args);
+  }
 }

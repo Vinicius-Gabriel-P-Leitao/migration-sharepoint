@@ -11,7 +11,7 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 
 public class ConflictException extends AppException {
-    public ConflictException(ErrorCode errorCode, String message) {
-        super(errorCode, message);
-    }
+  public ConflictException(ErrorCode errorCode, String message) {
+    super(errorCode, message);
+  }
 }

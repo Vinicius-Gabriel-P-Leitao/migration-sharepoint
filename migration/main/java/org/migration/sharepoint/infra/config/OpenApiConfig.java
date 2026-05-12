@@ -18,20 +18,25 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-    private static final String API_TITLE = "SP Migrator API";
-    private static final String API_VERSION = "0.0.1";
-    private static final String API_DESCRIPTION = "API de gerenciamento de jobs de migração SharePoint → banco de dados";
-    private static final String SECURITY_SCHEME_NAME = "bearerAuth";
+  private static final String API_TITLE = "SP Migrator API";
+  private static final String API_VERSION = "0.0.1";
+  private static final String API_DESCRIPTION =
+      "API de gerenciamento de jobs de migração SharePoint → banco de dados";
+  private static final String SECURITY_SCHEME_NAME = "bearerAuth";
 
-    @Bean
-    public OpenAPI customOpenAPI() {
-        return new OpenAPI()
-                .info(new Info().title(API_TITLE).version(API_VERSION).description(API_DESCRIPTION))
-                .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
-                .components(new Components().addSecuritySchemes(SECURITY_SCHEME_NAME,
-                        new SecurityScheme().name(SECURITY_SCHEME_NAME)
-                                .type(SecurityScheme.Type.HTTP)
-                                .scheme("bearer")
-                                .bearerFormat("JWT")));
-    }
+  @Bean
+  public OpenAPI customOpenAPI() {
+    return new OpenAPI()
+        .info(new Info().title(API_TITLE).version(API_VERSION).description(API_DESCRIPTION))
+        .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
+        .components(
+            new Components()
+                .addSecuritySchemes(
+                    SECURITY_SCHEME_NAME,
+                    new SecurityScheme()
+                        .name(SECURITY_SCHEME_NAME)
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")));
+  }
 }

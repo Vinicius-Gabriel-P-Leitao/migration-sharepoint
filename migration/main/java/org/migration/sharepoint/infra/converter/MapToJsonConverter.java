@@ -9,36 +9,35 @@ package org.migration.sharepoint.infra.converter;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import java.util.HashMap;
+import java.util.Map;
 import org.migration.sharepoint.data.model.FieldMapping;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Converter
 public class MapToJsonConverter implements AttributeConverter<Map<String, FieldMapping>, String> {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final TypeReference<Map<String, FieldMapping>> TYPE = new TypeReference<>() {};
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, FieldMapping>> TYPE = new TypeReference<>() {};
 
-    @Override
-    public String convertToDatabaseColumn(Map<String, FieldMapping> attribute) {
-        if (attribute == null || attribute.isEmpty()) return "{}";
-        try {
-            return MAPPER.writeValueAsString(attribute);
-        } catch (Exception conversionException) {
-            return "{}";
-        }
+  @Override
+  public String convertToDatabaseColumn(Map<String, FieldMapping> attribute) {
+    if (attribute == null || attribute.isEmpty()) return "{}";
+    try {
+      return MAPPER.writeValueAsString(attribute);
+    } catch (Exception conversionException) {
+      return "{}";
     }
+  }
 
-    @Override
-    public Map<String, FieldMapping> convertToEntityAttribute(String dbData) {
-        if (dbData == null || dbData.isBlank()) return new HashMap<>();
-        try {
-            return MAPPER.readValue(dbData, TYPE);
-        } catch (Exception conversionException) {
-            return new HashMap<>();
-        }
+  @Override
+  public Map<String, FieldMapping> convertToEntityAttribute(String dbData) {
+    if (dbData == null || dbData.isBlank()) return new HashMap<>();
+    try {
+      return MAPPER.readValue(dbData, TYPE);
+    } catch (Exception conversionException) {
+      return new HashMap<>();
     }
+  }
 }

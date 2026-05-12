@@ -2,6 +2,7 @@ plugins {
 	java
 	alias(libs.plugins.spring.boot)
 	alias(libs.plugins.spring.dependency.management)
+	alias(libs.plugins.spotless)
 }
 
 group = "org.migration"
@@ -61,4 +62,14 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+spotless {
+	java {
+		target("main/java/**/*.java", "test/java/**/*.java")
+		googleJavaFormat("1.34.0")
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
 }

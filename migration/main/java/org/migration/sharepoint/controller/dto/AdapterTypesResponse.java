@@ -7,12 +7,8 @@
  */
 package org.migration.sharepoint.controller.dto;
 
-import org.migration.sharepoint.data.enums.ColumnType;
-
 import java.util.List;
 import java.util.Map;
+import org.migration.sharepoint.data.enums.ColumnType;
 
-public record AdapterTypesResponse(
-        Map<ColumnType, String> canonical,
-        List<String> nativeTypes
-) {}
+public record AdapterTypesResponse(Map<ColumnType, String> canonical, List<String> nativeTypes) {}

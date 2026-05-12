@@ -7,31 +7,32 @@
  */
 package org.migration.sharepoint.infra.writer;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 /**
  * Roteador de adapters: dado um {@link TargetDb}, retorna o {@link MigrationWriter} adequado.
- * Adicionar suporte a um novo banco = criar uma classe que implemente {@link MigrationWriter}
- * e declare {@code supports(TargetDb)} para o banco correspondente.
+ * Adicionar suporte a um novo banco = criar uma classe que implemente {@link MigrationWriter} e
+ * declare {@code supports(TargetDb)} para o banco correspondente.
  */
 @Component
 @RequiredArgsConstructor
 public class MigrationWriterRegistry {
 
-    private final List<MigrationWriter> writers;
+  private final List<MigrationWriter> writers;
 
-    public MigrationWriter get(TargetDb targetDb) {
-        return writers.stream()
-                .filter(migrationWriter -> migrationWriter.supports(targetDb))
-                .findFirst()
-                .orElseThrow(() -> new InfrastructureException(
-                        ErrorCode.TARGET_DB_NOT_SUPPORTED,
-                        "Nenhum writer disponível para o banco: " + targetDb));
-    }
+  public MigrationWriter get(TargetDb targetDb) {
+    return writers.stream()
+        .filter(migrationWriter -> migrationWriter.supports(targetDb))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new InfrastructureException(
+                    ErrorCode.TARGET_DB_NOT_SUPPORTED,
+                    "Nenhum writer disponível para o banco: " + targetDb));
+  }
 }

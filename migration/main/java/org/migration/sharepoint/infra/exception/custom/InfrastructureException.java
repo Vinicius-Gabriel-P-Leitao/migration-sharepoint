@@ -11,7 +11,7 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 
 public class InfrastructureException extends AppException {
-    public InfrastructureException(ErrorCode errorCode, String message) {
-        super(errorCode, message);
-    }
+  public InfrastructureException(ErrorCode errorCode, String message) {
+    super(errorCode, message);
+  }
 }

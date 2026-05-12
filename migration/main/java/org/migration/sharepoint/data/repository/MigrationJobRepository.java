@@ -10,5 +10,4 @@ package org.migration.sharepoint.data.repository;
 import org.migration.sharepoint.data.model.MigrationJob;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface MigrationJobRepository extends JpaRepository<MigrationJob, Long> {
-}
+public interface MigrationJobRepository extends JpaRepository<MigrationJob, Long> {}

@@ -12,33 +12,33 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public enum ErrorCode {
-    NOT_FOUND(HttpStatus.NOT_FOUND, "Not Found"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
-    BAD_REQUEST(HttpStatus.BAD_REQUEST, "Bad Request"),
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error"),
-    PASSWORD_RESET_REQUIRED(HttpStatus.FORBIDDEN, "Troca de senha obrigatória no primeiro acesso"),
+  NOT_FOUND(HttpStatus.NOT_FOUND, "Not Found"),
+  FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+  BAD_REQUEST(HttpStatus.BAD_REQUEST, "Bad Request"),
+  UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+  INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error"),
+  PASSWORD_RESET_REQUIRED(HttpStatus.FORBIDDEN, "Troca de senha obrigatória no primeiro acesso"),
 
-    JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "Job não encontrado"),
-    TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Tabela não encontrada no banco de destino"),
-    MIGRATION_CONFLICT(HttpStatus.CONFLICT, "Conflito de integridade na migração"),
+  JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "Job não encontrado"),
+  TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Tabela não encontrada no banco de destino"),
+  MIGRATION_CONFLICT(HttpStatus.CONFLICT, "Conflito de integridade na migração"),
 
-    GRAPH_API_ERROR(HttpStatus.BAD_GATEWAY, "Erro ao comunicar com a Microsoft Graph API"),
-    GRAPH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Token da Graph API inválido ou expirado"),
-    GRAPH_FORBIDDEN(HttpStatus.FORBIDDEN, "Sem permissão para acessar o recurso no SharePoint"),
-    GRAPH_SITE_OR_LIST_NOT_FOUND(HttpStatus.NOT_FOUND, "Site ou lista do SharePoint não encontrado"),
-    GRAPH_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit atingido na Microsoft Graph API"),
-    GRAPH_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Microsoft Graph API indisponível (erro 5xx)"),
-    GRAPH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Timeout na comunicação com a Graph API"),
+  GRAPH_API_ERROR(HttpStatus.BAD_GATEWAY, "Erro ao comunicar com a Microsoft Graph API"),
+  GRAPH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Token da Graph API inválido ou expirado"),
+  GRAPH_FORBIDDEN(HttpStatus.FORBIDDEN, "Sem permissão para acessar o recurso no SharePoint"),
+  GRAPH_SITE_OR_LIST_NOT_FOUND(HttpStatus.NOT_FOUND, "Site ou lista do SharePoint não encontrado"),
+  GRAPH_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit atingido na Microsoft Graph API"),
+  GRAPH_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Microsoft Graph API indisponível (erro 5xx)"),
+  GRAPH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Timeout na comunicação com a Graph API"),
 
-    TARGET_DB_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Banco de dados de destino não suportado"),
-    DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino");
+  TARGET_DB_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Banco de dados de destino não suportado"),
+  DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino");
 
-    private final HttpStatus httpStatus;
-    private final String message;
+  private final HttpStatus httpStatus;
+  private final String message;
 
-    ErrorCode(HttpStatus httpStatus, String message) {
-        this.httpStatus = httpStatus;
-        this.message = message;
-    }
+  ErrorCode(HttpStatus httpStatus, String message) {
+    this.httpStatus = httpStatus;
+    this.message = message;
+  }
 }
