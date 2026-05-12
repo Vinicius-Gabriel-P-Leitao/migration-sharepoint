@@ -19,6 +19,7 @@ public record JobResponse(
         String name,
         String siteId,
         String listId,
+        Integer pageSize,
         Map<String, String> fieldMappings,
         TargetDb targetDb,
         String connectionString,

@@ -41,8 +41,8 @@ public class QuartzSchedulerService {
                     log.info("Job id={} agendado ({})", job.getId(), job.getScheduleType());
                 }
             }
-        } catch (SchedulerException e) {
-            throw new RuntimeException("Erro ao agendar job id=" + job.getId() + ": " + e.getMessage(), e);
+        } catch (SchedulerException schedulerException) {
+            throw new RuntimeException("Erro ao agendar job id=%d: %s".formatted(job.getId(), schedulerException.getMessage()), schedulerException);
         }
     }
 
@@ -55,8 +55,8 @@ public class QuartzSchedulerService {
         try {
             scheduler.deleteJob(jobKey(jobId));
             log.info("Job id={} removido do Quartz", jobId);
-        } catch (SchedulerException e) {
-            throw new RuntimeException("Erro ao remover job id=" + jobId + ": " + e.getMessage(), e);
+        } catch (SchedulerException schedulerException) {
+            throw new RuntimeException("Erro ao remover job id=%d: %s".formatted(jobId, schedulerException.getMessage()), schedulerException);
         }
     }
 
@@ -64,8 +64,8 @@ public class QuartzSchedulerService {
         try {
             scheduler.triggerJob(jobKey(jobId));
             log.info("Disparo manual do job id={}", jobId);
-        } catch (SchedulerException e) {
-            throw new RuntimeException("Erro ao disparar job id=" + jobId + ": " + e.getMessage(), e);
+        } catch (SchedulerException schedulerException) {
+            throw new RuntimeException("Erro ao disparar job id=%d: %s".formatted(jobId, schedulerException.getMessage()), schedulerException);
         }
     }
 

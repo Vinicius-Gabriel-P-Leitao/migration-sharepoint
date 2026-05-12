@@ -9,8 +9,9 @@ package org.migration.sharepoint.infra.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
@@ -22,12 +23,10 @@ public class ServerSecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(matcherRegistry -> matcherRegistry.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html")
-                .permitAll()
-                .requestMatchers(HttpMethod.GET, "/**")
-                .permitAll()
-                .anyRequest()
-                .authenticated()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).headers(headers -> {
+        httpSecurity.csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(matcherRegistry -> matcherRegistry.anyRequest().permitAll())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> {
             headers.httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000));
             headers.contentSecurityPolicy(csp -> csp.policyDirectives(
                     "default-src 'self'; script-src 'self' 'unsafe-inline' chrome-extension: moz-extension:; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests;"));
@@ -38,5 +37,10 @@ public class ServerSecurityConfig {
         });
 
         return httpSecurity.build();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager() {
+        return authentication -> { throw new AuthenticationServiceException("Authentication is disabled"); };
     }
 }

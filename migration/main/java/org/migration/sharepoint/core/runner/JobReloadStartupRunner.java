@@ -32,8 +32,8 @@ public class JobReloadStartupRunner implements ApplicationRunner {
             try {
                 quartzSchedulerService.schedule(job);
                 loaded++;
-            } catch (Exception e) {
-                log.error("Falha ao recarregar job '{}' (id={}): {}", job.getName(), job.getId(), e.getMessage());
+            } catch (Exception schedulingException) {
+                log.error("Falha ao recarregar job '{}' (id={}): {}", job.getName(), job.getId(), schedulingException.getMessage());
             }
         }
 

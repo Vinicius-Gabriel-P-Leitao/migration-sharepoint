@@ -8,5 +8,5 @@
 package org.migration.sharepoint.data.enums;
 
 public enum TargetDb {
-    MYSQL
+    MYSQL, POSTGRESQL, MONGODB
 }

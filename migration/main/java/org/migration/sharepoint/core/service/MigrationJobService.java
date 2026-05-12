@@ -84,51 +84,54 @@ public class MigrationJobService {
                         "Job id=%d não encontrado".formatted(id)));
     }
 
-    private MigrationJob fromRequest(JobRequest r) {
+    private MigrationJob fromRequest(JobRequest request) {
         return MigrationJob.builder()
-                .name(r.name())
-                .siteId(r.siteId())
-                .listId(r.listId())
-                .fieldMappings(r.fieldMappings())
-                .targetDb(r.targetDb())
-                .connectionString(r.connectionString())
-                .tableName(r.tableName())
-                .scheduleType(r.scheduleType())
-                .intervalValue(r.intervalValue())
-                .intervalUnit(r.intervalUnit())
-                .cronExpression(r.cronExpression())
+                .name(request.name())
+                .siteId(request.siteId())
+                .listId(request.listId())
+                .pageSize(request.pageSize())
+                .fieldMappings(request.fieldMappings())
+                .targetDb(request.targetDb())
+                .connectionString(request.connectionString())
+                .tableName(request.tableName())
+                .scheduleType(request.scheduleType())
+                .intervalValue(request.intervalValue())
+                .intervalUnit(request.intervalUnit())
+                .cronExpression(request.cronExpression())
                 .build();
     }
 
-    private void applyRequest(MigrationJob job, JobRequest r) {
-        job.setName(r.name());
-        job.setSiteId(r.siteId());
-        job.setListId(r.listId());
-        job.setFieldMappings(r.fieldMappings());
-        job.setTargetDb(r.targetDb());
-        job.setConnectionString(r.connectionString());
-        job.setTableName(r.tableName());
-        job.setScheduleType(r.scheduleType());
-        job.setIntervalValue(r.intervalValue());
-        job.setIntervalUnit(r.intervalUnit());
-        job.setCronExpression(r.cronExpression());
+    private void applyRequest(MigrationJob job, JobRequest request) {
+        job.setName(request.name());
+        job.setSiteId(request.siteId());
+        job.setListId(request.listId());
+        job.setPageSize(request.pageSize());
+        job.setFieldMappings(request.fieldMappings());
+        job.setTargetDb(request.targetDb());
+        job.setConnectionString(request.connectionString());
+        job.setTableName(request.tableName());
+        job.setScheduleType(request.scheduleType());
+        job.setIntervalValue(request.intervalValue());
+        job.setIntervalUnit(request.intervalUnit());
+        job.setCronExpression(request.cronExpression());
     }
 
-    private JobResponse toResponse(MigrationJob j) {
+    private JobResponse toResponse(MigrationJob job) {
         return new JobResponse(
-                j.getId(),
-                j.getName(),
-                j.getSiteId(),
-                j.getListId(),
-                j.getFieldMappings(),
-                j.getTargetDb(),
-                j.getConnectionString(),
-                j.getTableName(),
-                j.getScheduleType(),
-                j.getIntervalValue(),
-                j.getIntervalUnit(),
-                j.getCronExpression(),
-                j.getCreatedAt(),
-                j.getUpdatedAt());
+                job.getId(),
+                job.getName(),
+                job.getSiteId(),
+                job.getListId(),
+                job.getPageSize(),
+                job.getFieldMappings(),
+                job.getTargetDb(),
+                job.getConnectionString(),
+                job.getTableName(),
+                job.getScheduleType(),
+                job.getIntervalValue(),
+                job.getIntervalUnit(),
+                job.getCronExpression(),
+                job.getCreatedAt(),
+                job.getUpdatedAt());
     }
 }

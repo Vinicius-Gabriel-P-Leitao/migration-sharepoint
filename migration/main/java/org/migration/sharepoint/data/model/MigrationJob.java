@@ -39,6 +39,10 @@ public class MigrationJob {
     @Column(nullable = false)
     private String listId;
 
+    // Itens retornados por página na Graph API (1–5000)
+    @Column(nullable = false)
+    private Integer pageSize;
+
     // SharePoint field → DB column mapping  {"SpField": "db_column"}
     @Convert(converter = MapToJsonConverter.class)
     @Column(columnDefinition = "TEXT", nullable = false)

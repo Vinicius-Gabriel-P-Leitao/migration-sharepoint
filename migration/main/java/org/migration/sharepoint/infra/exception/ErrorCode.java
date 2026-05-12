@@ -22,7 +22,16 @@ public enum ErrorCode {
     JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "Job não encontrado"),
     TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Tabela não encontrada no banco de destino"),
     MIGRATION_CONFLICT(HttpStatus.CONFLICT, "Conflito de integridade na migração"),
+
     GRAPH_API_ERROR(HttpStatus.BAD_GATEWAY, "Erro ao comunicar com a Microsoft Graph API"),
+    GRAPH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Token da Graph API inválido ou expirado"),
+    GRAPH_FORBIDDEN(HttpStatus.FORBIDDEN, "Sem permissão para acessar o recurso no SharePoint"),
+    GRAPH_SITE_OR_LIST_NOT_FOUND(HttpStatus.NOT_FOUND, "Site ou lista do SharePoint não encontrado"),
+    GRAPH_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit atingido na Microsoft Graph API"),
+    GRAPH_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Microsoft Graph API indisponível (erro 5xx)"),
+    GRAPH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Timeout na comunicação com a Graph API"),
+
+    TARGET_DB_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Banco de dados de destino não suportado"),
     DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino");
 
     private final HttpStatus httpStatus;
