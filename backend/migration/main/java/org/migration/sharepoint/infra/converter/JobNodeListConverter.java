@@ -9,35 +9,35 @@ package org.migration.sharepoint.infra.converter;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import java.util.HashMap;
-import java.util.Map;
-import org.migration.sharepoint.data.model.FieldMapping;
+import java.util.ArrayList;
+import java.util.List;
+import org.migration.sharepoint.data.model.JobNode;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 @Converter
-public class MapToJsonConverter implements AttributeConverter<Map<String, FieldMapping>, String> {
+public class JobNodeListConverter implements AttributeConverter<List<JobNode>, String> {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final TypeReference<Map<String, FieldMapping>> TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<JobNode>> TYPE = new TypeReference<>() {};
 
     @Override
-    public String convertToDatabaseColumn(Map<String, FieldMapping> attribute) {
-        if (attribute == null || attribute.isEmpty()) return "{}";
+    public String convertToDatabaseColumn(List<JobNode> attribute) {
+        if (attribute == null || attribute.isEmpty()) return null;
         try {
             return MAPPER.writeValueAsString(attribute);
         } catch (Exception conversionException) {
-            return "{}";
+            return null;
         }
     }
 
     @Override
-    public Map<String, FieldMapping> convertToEntityAttribute(String dbData) {
-        if (dbData == null || dbData.isBlank()) return new HashMap<>();
+    public List<JobNode> convertToEntityAttribute(String dbData) {
+        if (dbData == null || dbData.isBlank()) return new ArrayList<>();
         try {
             return MAPPER.readValue(dbData, TYPE);
         } catch (Exception conversionException) {
-            return new HashMap<>();
+            return new ArrayList<>();
         }
     }
 }

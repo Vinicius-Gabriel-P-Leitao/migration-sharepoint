@@ -18,6 +18,7 @@ import org.migration.sharepoint.data.enums.JobStatus;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.JobNode;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
@@ -32,329 +33,325 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(properties = "security.rate-limit.enabled=false")
 class MigrationJobControllerTest {
 
-  @Autowired private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-  @MockitoBean private MigrationJobService service;
+    @MockitoBean
+    private MigrationJobService service;
 
-  private static final Map<String, FieldMapping> FIELD_MAPPINGS =
-      Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null));
+    private static final Map<String, FieldMapping> FIELD_MAPPINGS =
+            Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null));
 
-  private JobResponse buildJobResponse(Long id, ScheduleType scheduleType) {
-    return new JobResponse(
-        id,
-        "Test Job",
-        "site-123",
-        "list-456",
-        100,
-        FIELD_MAPPINGS,
-        TargetDb.MYSQL,
-        "MYSQL_PROD",
-        "test_table",
-        scheduleType,
-        null,
-        null,
-        null,
-        LocalDateTime.now(),
-        LocalDateTime.now());
-  }
+    private static final JobNode ROOT_NODE =
+            new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null);
 
-  private static final String VALID_JOB_JSON =
-      """
-      {
-        "name": "Test Job",
-        "siteId": "site-123",
-        "listId": "list-456",
-        "pageSize": 100,
-        "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}},
-        "targetDb": "MYSQL",
-        "connectionKey": "MYSQL_PROD",
-        "tableName": "test_table",
-        "scheduleType": "MANUAL"
-      }
-      """;
+    private JobResponse buildJobResponse(Long id, ScheduleType scheduleType) {
+        return new JobResponse(
+                id,
+                "Test Job",
+                100,
+                TargetDb.MYSQL,
+                "MYSQL_PROD",
+                scheduleType,
+                null,
+                null,
+                null,
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                ROOT_NODE);
+    }
 
-  // -------------------------------------------------------------------------
-  // GET /v1/jobs
-  // -------------------------------------------------------------------------
+    private static final String VALID_JOB_JSON =
+            """
+            {
+              "name": "Test Job",
+              "pageSize": 100,
+              "targetDb": "MYSQL",
+              "connectionKey": "MYSQL_PROD",
+              "scheduleType": "MANUAL",
+              "migration": {
+                "siteId": "site-123",
+                "listId": "list-456",
+                "tableName": "test_table",
+                "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}}
+              }
+            }
+            """;
 
-  @Test
-  void shouldReturnAllJobs() throws Exception {
-    when(service.findAll())
-        .thenReturn(
-            List.of(
-                buildJobResponse(1L, ScheduleType.MANUAL),
-                buildJobResponse(2L, ScheduleType.CRON)));
+    // -------------------------------------------------------------------------
+    // GET /v1/jobs
+    // -------------------------------------------------------------------------
 
-    mockMvc
-        .perform(get("/v1/jobs"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$").isArray())
-        .andExpect(jsonPath("$.length()").value(2));
-  }
+    @Test
+    void shouldReturnAllJobs() throws Exception {
+        when(service.findAll())
+                .thenReturn(
+                        List.of(buildJobResponse(1L, ScheduleType.MANUAL), buildJobResponse(2L, ScheduleType.CRON)));
 
-  @Test
-  void shouldReturnEmptyArrayWhenNoJobsExist() throws Exception {
-    when(service.findAll()).thenReturn(List.of());
+        mockMvc.perform(get("/v1/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
 
-    mockMvc.perform(get("/v1/jobs")).andExpect(status().isOk()).andExpect(content().json("[]"));
-  }
+    @Test
+    void shouldReturnEmptyArrayWhenNoJobsExist() throws Exception {
+        when(service.findAll()).thenReturn(List.of());
 
-  // -------------------------------------------------------------------------
-  // GET /v1/jobs/{id}
-  // -------------------------------------------------------------------------
+        mockMvc.perform(get("/v1/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
 
-  @Test
-  void shouldReturnJobById() throws Exception {
-    when(service.findById(1L)).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
+    // -------------------------------------------------------------------------
+    // GET /v1/jobs/{id}
+    // -------------------------------------------------------------------------
 
-    mockMvc
-        .perform(get("/v1/jobs/1"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(1))
-        .andExpect(jsonPath("$.name").value("Test Job"))
-        .andExpect(jsonPath("$.connectionKey").value("MYSQL_PROD"));
-  }
+    @Test
+    void shouldReturnJobById() throws Exception {
+        when(service.findById(1L)).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
 
-  @Test
-  void shouldReturn404WhenJobNotFound() throws Exception {
-    when(service.findById(999L))
-        .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+        mockMvc.perform(get("/v1/jobs/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Test Job"))
+                .andExpect(jsonPath("$.connectionKey").value("MYSQL_PROD"))
+                .andExpect(jsonPath("$.migration.siteId").value("site-123"))
+                .andExpect(jsonPath("$.migration.tableName").value("test_table"));
+    }
 
-    mockMvc.perform(get("/v1/jobs/999")).andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenJobNotFound() throws Exception {
+        when(service.findById(999L))
+                .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
 
-  @Test
-  void shouldReturn400WhenIdIsNotANumber() throws Exception {
-    mockMvc.perform(get("/v1/jobs/not-a-number")).andExpect(status().isBadRequest());
-  }
+        mockMvc.perform(get("/v1/jobs/999")).andExpect(status().isNotFound());
+    }
 
-  // -------------------------------------------------------------------------
-  // POST /v1/jobs
-  // -------------------------------------------------------------------------
+    @Test
+    void shouldReturn400WhenIdIsNotANumber() throws Exception {
+        mockMvc.perform(get("/v1/jobs/not-a-number")).andExpect(status().isBadRequest());
+    }
 
-  @Test
-  void shouldCreateJobAndReturn201() throws Exception {
-    when(service.create(any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
+    // -------------------------------------------------------------------------
+    // POST /v1/jobs
+    // -------------------------------------------------------------------------
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").value(1));
-  }
+    @Test
+    void shouldCreateJobAndReturn201() throws Exception {
+        when(service.create(any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
 
-  @Test
-  void shouldReturn400WhenJobNameIsBlank() throws Exception {
-    String json =
-        """
-        {
-          "name": "",
-          "siteId": "site-123",
-          "listId": "list-456",
-          "pageSize": 100,
-          "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}},
-          "targetDb": "MYSQL",
-          "connectionKey": "MYSQL_PROD",
-          "tableName": "test_table",
-          "scheduleType": "MANUAL"
-        }
-        """;
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1));
+    }
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
-        .andExpect(status().isBadRequest());
-  }
+    @Test
+    void shouldReturn400WhenJobNameIsBlank() throws Exception {
+        String json =
+                """
+                {
+                  "name": "",
+                  "pageSize": 100,
+                  "targetDb": "MYSQL",
+                  "connectionKey": "MYSQL_PROD",
+                  "scheduleType": "MANUAL",
+                  "migration": {
+                    "siteId": "site-123",
+                    "listId": "list-456",
+                    "tableName": "test_table",
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}}
+                  }
+                }
+                """;
 
-  @Test
-  void shouldReturn400WhenPageSizeExceedsMax() throws Exception {
-    String json =
-        """
-        {
-          "name": "Job",
-          "siteId": "site-123",
-          "listId": "list-456",
-          "pageSize": 9999,
-          "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}},
-          "targetDb": "MYSQL",
-          "connectionKey": "MYSQL_PROD",
-          "tableName": "test_table",
-          "scheduleType": "MANUAL"
-        }
-        """;
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isBadRequest());
+    }
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
-        .andExpect(status().isBadRequest());
-  }
+    @Test
+    void shouldReturn400WhenPageSizeExceedsMax() throws Exception {
+        String json =
+                """
+                {
+                  "name": "Job",
+                  "pageSize": 9999,
+                  "targetDb": "MYSQL",
+                  "connectionKey": "MYSQL_PROD",
+                  "scheduleType": "MANUAL",
+                  "migration": {
+                    "siteId": "site-123",
+                    "listId": "list-456",
+                    "tableName": "test_table",
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}}
+                  }
+                }
+                """;
 
-  @Test
-  void shouldReturn400WhenPageSizeIsZero() throws Exception {
-    String json =
-        """
-        {
-          "name": "Job",
-          "siteId": "site-123",
-          "listId": "list-456",
-          "pageSize": 0,
-          "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}},
-          "targetDb": "MYSQL",
-          "connectionKey": "MYSQL_PROD",
-          "tableName": "test_table",
-          "scheduleType": "MANUAL"
-        }
-        """;
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isBadRequest());
+    }
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
-        .andExpect(status().isBadRequest());
-  }
+    @Test
+    void shouldReturn400WhenPageSizeIsZero() throws Exception {
+        String json =
+                """
+                {
+                  "name": "Job",
+                  "pageSize": 0,
+                  "targetDb": "MYSQL",
+                  "connectionKey": "MYSQL_PROD",
+                  "scheduleType": "MANUAL",
+                  "migration": {
+                    "siteId": "site-123",
+                    "listId": "list-456",
+                    "tableName": "test_table",
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}}
+                  }
+                }
+                """;
 
-  @Test
-  void shouldReturn404WhenConnectionKeyNotRegistered() throws Exception {
-    when(service.create(any()))
-        .thenThrow(
-            new NotFoundException(
-                ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'MYSQL_PROD' não encontrada"));
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isBadRequest());
+    }
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
-        .andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenConnectionKeyNotRegistered() throws Exception {
+        when(service.create(any()))
+                .thenThrow(
+                        new NotFoundException(ErrorCode.CONNECTION_NOT_FOUND, "Conexão 'MYSQL_PROD' não encontrada"));
 
-  @Test
-  void shouldReturn400WhenIntervalJobMissingRequiredFields() throws Exception {
-    when(service.create(any()))
-        .thenThrow(
-            new BadRequestException(
-                ErrorCode.BAD_REQUEST,
-                "scheduleType INTERVAL requer intervalValue e intervalUnit"));
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
+                .andExpect(status().isNotFound());
+    }
 
-    String json =
-        """
-        {
-          "name": "Job",
-          "siteId": "site-123",
-          "listId": "list-456",
-          "pageSize": 100,
-          "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}},
-          "targetDb": "MYSQL",
-          "connectionKey": "MYSQL_PROD",
-          "tableName": "test_table",
-          "scheduleType": "INTERVAL"
-        }
-        """;
+    @Test
+    void shouldReturn400WhenIntervalJobMissingRequiredFields() throws Exception {
+        when(service.create(any()))
+                .thenThrow(new BadRequestException(
+                        ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue"));
 
-    mockMvc
-        .perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
-        .andExpect(status().isBadRequest());
-  }
+        String json =
+                """
+                {
+                  "name": "Job",
+                  "pageSize": 100,
+                  "targetDb": "MYSQL",
+                  "connectionKey": "MYSQL_PROD",
+                  "scheduleType": "INTERVAL",
+                  "migration": {
+                    "siteId": "site-123",
+                    "listId": "list-456",
+                    "tableName": "test_table",
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT"}}
+                  }
+                }
+                """;
 
-  // -------------------------------------------------------------------------
-  // PUT /v1/jobs/{id}
-  // -------------------------------------------------------------------------
+        mockMvc.perform(post("/v1/jobs").contentType(MediaType.APPLICATION_JSON).content(json))
+                .andExpect(status().isBadRequest());
+    }
 
-  @Test
-  void shouldUpdateJobAndReturn200() throws Exception {
-    when(service.update(eq(1L), any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
+    // -------------------------------------------------------------------------
+    // PUT /v1/jobs/{id}
+    // -------------------------------------------------------------------------
 
-    mockMvc
-        .perform(put("/v1/jobs/1").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(1));
-  }
+    @Test
+    void shouldUpdateJobAndReturn200() throws Exception {
+        when(service.update(eq(1L), any())).thenReturn(buildJobResponse(1L, ScheduleType.MANUAL));
 
-  @Test
-  void shouldReturn404WhenUpdatingNonExistentJob() throws Exception {
-    when(service.update(eq(999L), any()))
-        .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+        mockMvc.perform(put("/v1/jobs/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_JOB_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
 
-    mockMvc
-        .perform(
-            put("/v1/jobs/999").contentType(MediaType.APPLICATION_JSON).content(VALID_JOB_JSON))
-        .andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenUpdatingNonExistentJob() throws Exception {
+        when(service.update(eq(999L), any()))
+                .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
 
-  // -------------------------------------------------------------------------
-  // DELETE /v1/jobs/{id}
-  // -------------------------------------------------------------------------
+        mockMvc.perform(put("/v1/jobs/999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_JOB_JSON))
+                .andExpect(status().isNotFound());
+    }
 
-  @Test
-  void shouldDeleteJobAndReturn204() throws Exception {
-    doNothing().when(service).delete(1L);
+    // -------------------------------------------------------------------------
+    // DELETE /v1/jobs/{id}
+    // -------------------------------------------------------------------------
 
-    mockMvc.perform(delete("/v1/jobs/1")).andExpect(status().isNoContent());
+    @Test
+    void shouldDeleteJobAndReturn204() throws Exception {
+        doNothing().when(service).delete(1L);
 
-    verify(service).delete(1L);
-  }
+        mockMvc.perform(delete("/v1/jobs/1")).andExpect(status().isNoContent());
 
-  @Test
-  void shouldReturn404WhenDeletingNonExistentJob() throws Exception {
-    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
-        .when(service)
-        .delete(999L);
+        verify(service).delete(1L);
+    }
 
-    mockMvc.perform(delete("/v1/jobs/999")).andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenDeletingNonExistentJob() throws Exception {
+        doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
+                .when(service)
+                .delete(999L);
 
-  // -------------------------------------------------------------------------
-  // POST /v1/jobs/{id}/run
-  // -------------------------------------------------------------------------
+        mockMvc.perform(delete("/v1/jobs/999")).andExpect(status().isNotFound());
+    }
 
-  @Test
-  void shouldTriggerJobAndReturn202() throws Exception {
-    doNothing().when(service).runNow(1L);
+    // -------------------------------------------------------------------------
+    // POST /v1/jobs/{id}/run
+    // -------------------------------------------------------------------------
 
-    mockMvc.perform(post("/v1/jobs/1/run")).andExpect(status().isAccepted());
+    @Test
+    void shouldTriggerJobAndReturn202() throws Exception {
+        doNothing().when(service).runNow(1L);
 
-    verify(service).runNow(1L);
-  }
+        mockMvc.perform(post("/v1/jobs/1/run")).andExpect(status().isAccepted());
 
-  @Test
-  void shouldReturn404WhenRunningNonExistentJob() throws Exception {
-    doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
-        .when(service)
-        .runNow(999L);
+        verify(service).runNow(1L);
+    }
 
-    mockMvc.perform(post("/v1/jobs/999/run")).andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenRunningNonExistentJob() throws Exception {
+        doThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"))
+                .when(service)
+                .runNow(999L);
 
-  // -------------------------------------------------------------------------
-  // GET /v1/jobs/{id}/logs
-  // -------------------------------------------------------------------------
+        mockMvc.perform(post("/v1/jobs/999/run")).andExpect(status().isNotFound());
+    }
 
-  @Test
-  void shouldReturnLogsForJob() throws Exception {
-    LogResponse log =
-        new LogResponse(
-            10L,
-            1L,
-            JobStatus.SUCCESS,
-            LocalDateTime.now().minusMinutes(5),
-            LocalDateTime.now(),
-            null);
-    when(service.findLogs(1L)).thenReturn(List.of(log));
+    // -------------------------------------------------------------------------
+    // GET /v1/jobs/{id}/logs
+    // -------------------------------------------------------------------------
 
-    mockMvc
-        .perform(get("/v1/jobs/1/logs"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].id").value(10))
-        .andExpect(jsonPath("$[0].status").value("SUCCESS"));
-  }
+    @Test
+    void shouldReturnLogsForJob() throws Exception {
+        LogResponse log = new LogResponse(
+                10L, 1L, JobStatus.SUCCESS, LocalDateTime.now().minusMinutes(5), LocalDateTime.now(), null);
+        when(service.findLogs(1L)).thenReturn(List.of(log));
 
-  @Test
-  void shouldReturnEmptyLogsArray() throws Exception {
-    when(service.findLogs(1L)).thenReturn(List.of());
+        mockMvc.perform(get("/v1/jobs/1/logs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].status").value("SUCCESS"));
+    }
 
-    mockMvc
-        .perform(get("/v1/jobs/1/logs"))
-        .andExpect(status().isOk())
-        .andExpect(content().json("[]"));
-  }
+    @Test
+    void shouldReturnEmptyLogsArray() throws Exception {
+        when(service.findLogs(1L)).thenReturn(List.of());
 
-  @Test
-  void shouldReturn404WhenGettingLogsForMissingJob() throws Exception {
-    when(service.findLogs(999L))
-        .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+        mockMvc.perform(get("/v1/jobs/1/logs"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
 
-    mockMvc.perform(get("/v1/jobs/999/logs")).andExpect(status().isNotFound());
-  }
+    @Test
+    void shouldReturn404WhenGettingLogsForMissingJob() throws Exception {
+        when(service.findLogs(999L))
+                .thenThrow(new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=999 não encontrado"));
+
+        mockMvc.perform(get("/v1/jobs/999/logs")).andExpect(status().isNotFound());
+    }
 }

@@ -8,24 +8,18 @@
 package org.migration.sharepoint.controller.job.dto;
 
 import jakarta.validation.constraints.*;
-import java.util.Map;
 import org.migration.sharepoint.data.enums.IntervalUnit;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
-import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.JobNode;
 
 public record JobRequest(
-    @NotBlank String name,
-    @NotBlank String siteId,
-    @NotBlank String listId,
-    @NotNull @Min(1) @Max(5000) Integer pageSize,
-
-    // {"SharePointField": {"column": "db_col", "type": CANONICAL, "nativeType": "NATIVE"}}
-    @NotEmpty Map<String, FieldMapping> fieldMappings,
-    @NotNull TargetDb targetDb,
-    @NotBlank String connectionKey,
-    @NotBlank String tableName,
-    @NotNull ScheduleType scheduleType,
-    Long intervalValue,
-    IntervalUnit intervalUnit,
-    String cronExpression) {}
+        @NotBlank String name,
+        @NotNull @Min(1) @Max(5000) Integer pageSize,
+        @NotNull TargetDb targetDb,
+        @NotBlank String connectionKey,
+        @NotNull ScheduleType scheduleType,
+        Long intervalValue,
+        IntervalUnit intervalUnit,
+        String cronExpression,
+        @NotNull JobNode migration) {}

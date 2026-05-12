@@ -8,10 +8,10 @@
 package org.migration.sharepoint.data.enums;
 
 public enum ColumnType {
-  TEXT,
-  NUMBER,
-  DECIMAL,
-  BOOLEAN,
-  DATE,
-  DATETIME
+    TEXT,
+    NUMBER,
+    DECIMAL,
+    BOOLEAN,
+    DATE,
+    DATETIME
 }

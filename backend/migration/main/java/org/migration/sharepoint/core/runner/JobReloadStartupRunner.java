@@ -20,27 +20,27 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class JobReloadStartupRunner implements ApplicationRunner {
 
-  private final MigrationJobRepository jobRepository;
-  private final QuartzSchedulerService quartzSchedulerService;
+    private final MigrationJobRepository jobRepository;
+    private final QuartzSchedulerService quartzSchedulerService;
 
-  @Override
-  public void run(ApplicationArguments args) {
-    var jobs = jobRepository.findAll();
-    int loaded = 0;
+    @Override
+    public void run(ApplicationArguments args) {
+        var jobs = jobRepository.findAll();
+        int loaded = 0;
 
-    for (var job : jobs) {
-      try {
-        quartzSchedulerService.schedule(job);
-        loaded++;
-      } catch (Exception schedulingException) {
-        log.error(
-            "Falha ao recarregar job '{}' (id={}): {}",
-            job.getName(),
-            job.getId(),
-            schedulingException.getMessage());
-      }
+        for (var job : jobs) {
+            try {
+                quartzSchedulerService.schedule(job);
+                loaded++;
+            } catch (Exception schedulingException) {
+                log.error(
+                        "Falha ao recarregar job '{}' (id={}): {}",
+                        job.getName(),
+                        job.getId(),
+                        schedulingException.getMessage());
+            }
+        }
+
+        log.info("{}/{} jobs recarregados no Quartz na inicialização", loaded, jobs.size());
     }
-
-    log.info("{}/{} jobs recarregados no Quartz na inicialização", loaded, jobs.size());
-  }
 }

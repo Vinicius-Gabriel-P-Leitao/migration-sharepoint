@@ -8,25 +8,21 @@
 package org.migration.sharepoint.controller.job.dto;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import org.migration.sharepoint.data.enums.IntervalUnit;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
-import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.JobNode;
 
 public record JobResponse(
-    Long id,
-    String name,
-    String siteId,
-    String listId,
-    Integer pageSize,
-    Map<String, FieldMapping> fieldMappings,
-    TargetDb targetDb,
-    String connectionKey,
-    String tableName,
-    ScheduleType scheduleType,
-    Long intervalValue,
-    IntervalUnit intervalUnit,
-    String cronExpression,
-    LocalDateTime createdAt,
-    LocalDateTime updatedAt) {}
+        Long id,
+        String name,
+        Integer pageSize,
+        TargetDb targetDb,
+        String connectionKey,
+        ScheduleType scheduleType,
+        Long intervalValue,
+        IntervalUnit intervalUnit,
+        String cronExpression,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt,
+        JobNode migration) {}

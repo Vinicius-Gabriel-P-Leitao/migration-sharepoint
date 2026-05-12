@@ -11,10 +11,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 public record ConnectionRequest(
-    @NotBlank
-        @Pattern(
-            regexp = "[A-Z0-9_]+",
-            message = "key deve conter apenas letras maiúsculas, números e underscores")
+        @NotBlank
+        @Pattern(regexp = "[A-Z0-9_]+", message = "key deve conter apenas letras maiúsculas, números e underscores")
         String key,
-    @NotBlank String name,
-    @NotBlank String url) {}
+
+        @NotBlank String name,
+        @NotBlank String url) {}

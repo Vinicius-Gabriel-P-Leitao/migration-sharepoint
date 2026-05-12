@@ -17,6 +17,7 @@ import org.migration.sharepoint.data.enums.JobStatus;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.JobNode;
 import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.model.MigrationLog;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
@@ -41,314 +42,318 @@ import org.quartz.SchedulerException;
 @ExtendWith(MockitoExtension.class)
 class SharePointMigrationJobTest {
 
-  @Mock private MigrationJobRepository jobRepository;
-  @Mock private MigrationLogRepository logRepository;
-  @Mock private GraphClient graphClient;
-  @Mock private MigrationWriterRegistry writerRegistry;
+    @Mock
+    private MigrationJobRepository jobRepository;
 
-  @Mock private JobExecutionContext context;
-  @Mock private JobDetail jobDetail;
-  @Mock private Scheduler scheduler;
+    @Mock
+    private MigrationLogRepository logRepository;
 
-  @InjectMocks private SharePointMigrationJob migrationJob;
+    @Mock
+    private GraphClient graphClient;
 
-  private static final Long JOB_ID = 42L;
-  private static final Map<String, FieldMapping> FIELD_MAPPINGS =
-      Map.of(
-          "Title", new FieldMapping("title", ColumnType.TEXT, null),
-          "Amount", new FieldMapping("amount", ColumnType.NUMBER, null));
+    @Mock
+    private MigrationWriterRegistry writerRegistry;
 
-  @BeforeEach
-  void setUpContext() {
-    JobDataMap dataMap = new JobDataMap();
-    dataMap.put("jobId", JOB_ID);
-    when(context.getJobDetail()).thenReturn(jobDetail);
-    when(jobDetail.getJobDataMap()).thenReturn(dataMap);
-  }
+    @Mock
+    private JobExecutionContext context;
 
-  private MigrationJob buildJob(ScheduleType scheduleType) {
-    return MigrationJob.builder()
-        .id(JOB_ID)
-        .name("Test Job")
-        .siteId("site-123")
-        .listId("list-456")
-        .pageSize(100)
-        .fieldMappings(FIELD_MAPPINGS)
-        .targetDb(TargetDb.MYSQL)
-        .connectionKey("MYSQL_PROD")
-        .tableName("test_table")
-        .scheduleType(scheduleType)
-        .build();
-  }
+    @Mock
+    private JobDetail jobDetail;
 
-  private MigrationLog captureLog() {
-    ArgumentCaptor<MigrationLog> captor = ArgumentCaptor.forClass(MigrationLog.class);
-    verify(logRepository, atLeastOnce()).save(captor.capture());
-    return captor.getValue();
-  }
+    @Mock
+    private Scheduler scheduler;
 
-  // -------------------------------------------------------------------------
-  // execute — job not found
-  // -------------------------------------------------------------------------
+    @InjectMocks
+    private SharePointMigrationJob migrationJob;
 
-  @Test
-  void shouldThrowJobExecutionExceptionWhenJobNotFound() {
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.empty());
+    private static final Long JOB_ID = 42L;
+    private static final Map<String, FieldMapping> FIELD_MAPPINGS = Map.of(
+            "Title",
+            new FieldMapping("title", ColumnType.TEXT, null),
+            "Amount",
+            new FieldMapping("amount", ColumnType.NUMBER, null));
 
-    assertThatThrownBy(() -> migrationJob.execute(context))
-        .isInstanceOf(JobExecutionException.class)
-        .hasMessageContaining(String.valueOf(JOB_ID));
-  }
+    @BeforeEach
+    void setUpContext() {
+        JobDataMap dataMap = new JobDataMap();
+        dataMap.put("jobId", JOB_ID);
+        when(context.getJobDetail()).thenReturn(jobDetail);
+        when(jobDetail.getJobDataMap()).thenReturn(dataMap);
+    }
 
-  // -------------------------------------------------------------------------
-  // execute — success path
-  // -------------------------------------------------------------------------
+    private MigrationJob buildJob(ScheduleType scheduleType) {
+        return MigrationJob.builder()
+                .id(JOB_ID)
+                .name("Test Job")
+                .pageSize(100)
+                .targetDb(TargetDb.MYSQL)
+                .connectionKey("MYSQL_PROD")
+                .scheduleType(scheduleType)
+                .migration(new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null))
+                .build();
+    }
 
-  @Test
-  void shouldSaveSuccessLogAfterSuccessfulMigration() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    List<Map<String, Object>> spData =
-        List.of(Map.of("Title", "Row 1", "Amount", 10), Map.of("Title", "Row 2", "Amount", 20));
+    private MigrationLog captureLog() {
+        ArgumentCaptor<MigrationLog> captor = ArgumentCaptor.forClass(MigrationLog.class);
+        verify(logRepository, atLeastOnce()).save(captor.capture());
+        return captor.getValue();
+    }
 
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+    // -------------------------------------------------------------------------
+    // execute — job not found
+    // -------------------------------------------------------------------------
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(eq("site-123"), eq("list-456"), anySet(), eq(100)))
-        .thenReturn(spData);
-    when(writerRegistry.get(TargetDb.MYSQL)).thenReturn(writer);
+    @Test
+    void shouldThrowJobExecutionExceptionWhenJobNotFound() {
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.empty());
 
-    migrationJob.execute(context);
+        assertThatThrownBy(() -> migrationJob.execute(context))
+                .isInstanceOf(JobExecutionException.class)
+                .hasMessageContaining(String.valueOf(JOB_ID));
+    }
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
-    assertThat(finalLog.getFinishedAt()).isNotNull();
-    assertThat(finalLog.getErrorMessage()).isNull();
-  }
+    // -------------------------------------------------------------------------
+    // execute — success path
+    // -------------------------------------------------------------------------
 
-  @Test
-  void shouldPassMappedRowsToWriter() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    List<Map<String, Object>> spData = List.of(Map.of("Title", "Hello", "Amount", 42));
+    @Test
+    void shouldSaveSuccessLogAfterSuccessfulMigration() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        List<Map<String, Object>> spData =
+                List.of(Map.of("Title", "Row 1", "Amount", 10), Map.of("Title", "Row 2", "Amount", 20));
 
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenReturn(spData);
-    when(writerRegistry.get(TargetDb.MYSQL)).thenReturn(writer);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(eq("site-123"), eq("list-456"), anySet(), eq(100)))
+                .thenReturn(spData);
+        when(writerRegistry.get(TargetDb.MYSQL)).thenReturn(writer);
 
-    migrationJob.execute(context);
+        migrationJob.execute(context);
 
-    ArgumentCaptor<List<Map<String, Object>>> rowsCaptor = ArgumentCaptor.forClass(List.class);
-    verify(writer).write(eq("MYSQL_PROD"), eq("test_table"), rowsCaptor.capture(), any());
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
+        assertThat(finalLog.getFinishedAt()).isNotNull();
+        assertThat(finalLog.getErrorMessage()).isNull();
+    }
 
-    List<Map<String, Object>> rows = rowsCaptor.getValue();
-    assertThat(rows).hasSize(1);
-    assertThat(rows.getFirst()).containsEntry("title", "Hello").containsEntry("amount", 42);
-  }
+    @Test
+    void shouldPassMappedRowsToWriter() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        List<Map<String, Object>> spData = List.of(Map.of("Title", "Hello", "Amount", 42));
 
-  @Test
-  void shouldRequestOnlyFieldsDefinedInMapping() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
-    when(writerRegistry.get(any())).thenReturn(writer);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenReturn(spData);
+        when(writerRegistry.get(TargetDb.MYSQL)).thenReturn(writer);
 
-    migrationJob.execute(context);
+        migrationJob.execute(context);
 
-    ArgumentCaptor<Set<String>> fieldsCaptor = ArgumentCaptor.forClass(Set.class);
-    verify(graphClient).fetchListItems(any(), any(), fieldsCaptor.capture(), anyInt());
-    assertThat(fieldsCaptor.getValue()).containsExactlyInAnyOrder("Title", "Amount");
-  }
+        ArgumentCaptor<List<Map<String, Object>>> rowsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(writer).write(eq("MYSQL_PROD"), eq("test_table"), rowsCaptor.capture(), any());
 
-  // -------------------------------------------------------------------------
-  // execute — empty row data (no SharePoint rows returned)
-  // -------------------------------------------------------------------------
+        List<Map<String, Object>> rows = rowsCaptor.getValue();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst()).containsEntry("title", "Hello").containsEntry("amount", 42);
+    }
 
-  @Test
-  void shouldSaveSuccessLogWhenSharePointReturnsNoRows() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+    @Test
+    void shouldRequestOnlyFieldsDefinedInMapping() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenReturn(List.of());
-    when(writerRegistry.get(any())).thenReturn(writer);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
+        when(writerRegistry.get(any())).thenReturn(writer);
 
-    migrationJob.execute(context);
+        migrationJob.execute(context);
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
-  }
+        ArgumentCaptor<Set<String>> fieldsCaptor = ArgumentCaptor.forClass(Set.class);
+        verify(graphClient).fetchListItems(any(), any(), fieldsCaptor.capture(), anyInt());
+        assertThat(fieldsCaptor.getValue()).containsExactlyInAnyOrder("Title", "Amount");
+    }
 
-  // -------------------------------------------------------------------------
-  // execute — field mapping produces all-empty rows
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // execute — empty row data (no SharePoint rows returned)
+    // -------------------------------------------------------------------------
 
-  @Test
-  void shouldSaveFailedLogWhenNoFieldsMappedFromSharePointData() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+    @Test
+    void shouldSaveSuccessLogWhenSharePointReturnsNoRows() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(List.of(Map.of("UnknownField1", "value1"), Map.of("UnknownField2", "value2")));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenReturn(List.of());
+        when(writerRegistry.get(any())).thenReturn(writer);
 
-    migrationJob.execute(context);
+        migrationJob.execute(context);
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
-    assertThat(finalLog.getErrorMessage()).isNotBlank();
-    verify(writerRegistry, never()).get(any());
-  }
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
+    }
 
-  // -------------------------------------------------------------------------
-  // execute — AppException from Graph API
-  // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // execute — field mapping produces all-empty rows
+    // -------------------------------------------------------------------------
 
-  @Test
-  void shouldSaveFailedLogWhenGraphApiReturns401() throws Exception {
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenThrow(
-            new InfrastructureException(
-                ErrorCode.GRAPH_UNAUTHORIZED, "Token rejeitado (HTTP 401)"));
+    @Test
+    void shouldSaveFailedLogWhenNoFieldsMappedFromSharePointData() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
 
-    migrationJob.execute(context);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(Map.of("UnknownField1", "value1"), Map.of("UnknownField2", "value2")));
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
-    assertThat(finalLog.getErrorMessage()).contains("Token rejeitado");
-  }
+        migrationJob.execute(context);
 
-  @Test
-  void shouldSaveFailedLogWhenGraphApiReturns429() throws Exception {
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenThrow(
-            new InfrastructureException(
-                ErrorCode.GRAPH_RATE_LIMITED, "Rate limit atingido (HTTP 429)"));
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).isNotBlank();
+        verify(writerRegistry, never()).get(any());
+    }
 
-    migrationJob.execute(context);
+    // -------------------------------------------------------------------------
+    // execute — AppException from Graph API
+    // -------------------------------------------------------------------------
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
-    assertThat(finalLog.getErrorMessage()).contains("Rate limit");
-  }
+    @Test
+    void shouldSaveFailedLogWhenGraphApiReturns401() throws Exception {
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenThrow(new InfrastructureException(ErrorCode.GRAPH_UNAUTHORIZED, "Token rejeitado (HTTP 401)"));
 
-  // -------------------------------------------------------------------------
-  // execute — unexpected exception
-  // -------------------------------------------------------------------------
+        migrationJob.execute(context);
 
-  @Test
-  void shouldSaveFailedLogAndRethrowOnUnexpectedException() throws Exception {
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenThrow(new RuntimeException("Unexpected failure"));
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).contains("Token rejeitado");
+    }
 
-    assertThatThrownBy(() -> migrationJob.execute(context))
-        .isInstanceOf(JobExecutionException.class);
+    @Test
+    void shouldSaveFailedLogWhenGraphApiReturns429() throws Exception {
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenThrow(new InfrastructureException(ErrorCode.GRAPH_RATE_LIMITED, "Rate limit atingido (HTTP 429)"));
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
-    assertThat(finalLog.getErrorMessage()).contains("Unexpected failure");
-  }
+        migrationJob.execute(context);
 
-  @Test
-  void shouldUseClassNameAsErrorMessageWhenExceptionMessageIsNull() throws Exception {
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    RuntimeException exceptionWithNoMessage = new NullPointerException();
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenThrow(exceptionWithNoMessage);
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).contains("Rate limit");
+    }
 
-    assertThatThrownBy(() -> migrationJob.execute(context))
-        .isInstanceOf(JobExecutionException.class);
+    // -------------------------------------------------------------------------
+    // execute — unexpected exception
+    // -------------------------------------------------------------------------
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
-    assertThat(finalLog.getErrorMessage()).isEqualTo("NullPointerException");
-  }
+    @Test
+    void shouldSaveFailedLogAndRethrowOnUnexpectedException() throws Exception {
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenThrow(new RuntimeException("Unexpected failure"));
 
-  // -------------------------------------------------------------------------
-  // execute — CONTINUOUS mode
-  // -------------------------------------------------------------------------
+        assertThatThrownBy(() -> migrationJob.execute(context)).isInstanceOf(JobExecutionException.class);
 
-  @Test
-  void shouldTriggerNextRunAfterSuccessWhenContinuousMode() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.CONTINUOUS);
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    JobKey jobKey = JobKey.jobKey("job-" + JOB_ID, "migration");
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).contains("Unexpected failure");
+    }
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
-    when(writerRegistry.get(any())).thenReturn(writer);
-    when(context.getScheduler()).thenReturn(scheduler);
-    when(jobDetail.getKey()).thenReturn(jobKey);
+    @Test
+    void shouldUseClassNameAsErrorMessageWhenExceptionMessageIsNull() throws Exception {
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(buildJob(ScheduleType.MANUAL)));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        RuntimeException exceptionWithNoMessage = new NullPointerException();
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenThrow(exceptionWithNoMessage);
 
-    migrationJob.execute(context);
+        assertThatThrownBy(() -> migrationJob.execute(context)).isInstanceOf(JobExecutionException.class);
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
-    verify(scheduler).triggerJob(jobKey);
-  }
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).isEqualTo("NullPointerException");
+    }
 
-  @Test
-  void shouldKeepSuccessStatusWhenContinuousModeRescheduleFails() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.CONTINUOUS);
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
-    JobKey jobKey = JobKey.jobKey("job-" + JOB_ID, "migration");
+    // -------------------------------------------------------------------------
+    // execute — CONTINUOUS mode
+    // -------------------------------------------------------------------------
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
-    when(writerRegistry.get(any())).thenReturn(writer);
-    when(context.getScheduler()).thenReturn(scheduler);
-    when(jobDetail.getKey()).thenReturn(jobKey);
-    doThrow(new SchedulerException("Scheduler down")).when(scheduler).triggerJob(jobKey);
+    @Test
+    void shouldTriggerNextRunAfterSuccessWhenContinuousMode() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.CONTINUOUS);
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        JobKey jobKey = JobKey.jobKey("job-" + JOB_ID, "migration");
 
-    migrationJob.execute(context);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
+        when(writerRegistry.get(any())).thenReturn(writer);
+        when(context.getScheduler()).thenReturn(scheduler);
+        when(jobDetail.getKey()).thenReturn(jobKey);
 
-    MigrationLog finalLog = captureLog();
-    assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
-  }
+        migrationJob.execute(context);
 
-  @Test
-  void shouldNotTriggerNextRunForManualScheduleType() throws Exception {
-    MigrationJob job = buildJob(ScheduleType.MANUAL);
-    MigrationWriter writer = mock(MigrationWriter.class);
-    MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
+        verify(scheduler).triggerJob(jobKey);
+    }
 
-    when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-    when(logRepository.save(any())).thenReturn(runningLog);
-    when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
-        .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
-    when(writerRegistry.get(any())).thenReturn(writer);
+    @Test
+    void shouldKeepSuccessStatusWhenContinuousModeRescheduleFails() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.CONTINUOUS);
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+        JobKey jobKey = JobKey.jobKey("job-" + JOB_ID, "migration");
 
-    migrationJob.execute(context);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
+        when(writerRegistry.get(any())).thenReturn(writer);
+        when(context.getScheduler()).thenReturn(scheduler);
+        when(jobDetail.getKey()).thenReturn(jobKey);
+        doThrow(new SchedulerException("Scheduler down")).when(scheduler).triggerJob(jobKey);
 
-    verify(context, never()).getScheduler();
-  }
+        migrationJob.execute(context);
+
+        MigrationLog finalLog = captureLog();
+        assertThat(finalLog.getStatus()).isEqualTo(JobStatus.SUCCESS);
+    }
+
+    @Test
+    void shouldNotTriggerNextRunForManualScheduleType() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        MigrationWriter writer = mock(MigrationWriter.class);
+        MigrationLog runningLog = MigrationLog.builder().id(1L).build();
+
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(runningLog);
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt()))
+                .thenReturn(List.of(Map.of("Title", "X", "Amount", 1)));
+        when(writerRegistry.get(any())).thenReturn(writer);
+
+        migrationJob.execute(context);
+
+        verify(context, never()).getScheduler();
+    }
 }

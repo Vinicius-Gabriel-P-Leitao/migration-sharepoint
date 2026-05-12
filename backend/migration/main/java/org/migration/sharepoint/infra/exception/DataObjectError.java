@@ -14,10 +14,4 @@ import lombok.Builder;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record DataObjectError(
-    Date timestamp,
-    Integer status,
-    String error,
-    String code,
-    String message,
-    String path,
-    String traceId) {}
+        Date timestamp, Integer status, String error, String code, String message, String path, String traceId) {}

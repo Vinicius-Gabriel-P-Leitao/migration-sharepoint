@@ -21,117 +21,111 @@ import org.springframework.stereotype.Component;
 /**
  * Registry em memória de connection strings para os bancos de destino.
  *
- * <p>Na startup, carrega automaticamente pares de variáveis de ambiente:
+ * <p>
+ * Na startup, carrega automaticamente pares de variáveis de ambiente:
  *
  * <pre>
  *   CONN_URL_{KEY}  = jdbc:mysql://host:3306/db?user=u&amp;password=p
  *   CONN_NAME_{KEY} = MySQL Produção
  * </pre>
  *
- * <p>Conexões também podem ser registradas em runtime via API (POST /v1/connections). Os jobs
- * armazenam apenas a chave ({@code connectionKey}) no SQLite — nunca a URL.
+ * <p>
+ * Conexões também podem ser registradas em runtime via API (POST
+ * /v1/connections). Os jobs armazenam apenas a chave ({@code connectionKey}) no
+ * SQLite — nunca a URL.
  */
 @Slf4j
 @Component
 public class ConnectionRegistry {
 
-  private static final String URL_PREFIX = "CONN_URL_";
-  private static final String NAME_PREFIX = "CONN_NAME_";
+    private static final String URL_PREFIX = "CONN_URL_";
+    private static final String NAME_PREFIX = "CONN_NAME_";
 
-  private static final List<String> VALID_URL_PREFIXES =
-      List.of(
-          "jdbc:mysql://",
-          "jdbc:postgresql://",
-          "jdbc:mariadb://",
-          "jdbc:sqlite:",
-          "mongodb://",
-          "mongodb+srv://");
+    private static final List<String> VALID_URL_PREFIXES = List.of(
+            "jdbc:mysql://", "jdbc:postgresql://", "jdbc:mariadb://", "jdbc:sqlite:", "mongodb://", "mongodb+srv://");
 
-  private record Entry(String name, String url) {}
+    private record Entry(String name, String url) {}
 
-  private final ConcurrentHashMap<String, Entry> registry = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Entry> registry = new ConcurrentHashMap<>();
 
-  @PostConstruct
-  void loadFromEnv() {
-    System.getenv()
-        .forEach(
-            (key, value) -> {
-              if (key.startsWith(URL_PREFIX)) {
+    @PostConstruct
+    void loadFromEnv() {
+        System.getenv().forEach((key, value) -> {
+            if (key.startsWith(URL_PREFIX)) {
                 String suffix = key.substring(URL_PREFIX.length());
                 String name = System.getenv(NAME_PREFIX + suffix);
 
                 if (name == null || name.isBlank()) {
-                  log.warn(
-                      "{}{} definida sem {}{} correspondente — ignorada",
-                      URL_PREFIX,
-                      suffix,
-                      NAME_PREFIX,
-                      suffix);
-                  return;
+                    log.warn(
+                            "{}{} definida sem {}{} correspondente — ignorada",
+                            URL_PREFIX,
+                            suffix,
+                            NAME_PREFIX,
+                            suffix);
+                    return;
                 }
 
                 try {
-                  String cleanedUrl = cleanAndValidateUrl(value, suffix);
-                  registry.put(suffix, new Entry(name, cleanedUrl));
-                  log.info("Conexão carregada do ambiente: key={} name={}", suffix, name);
+                    String cleanedUrl = cleanAndValidateUrl(value, suffix);
+                    registry.put(suffix, new Entry(name, cleanedUrl));
+                    log.info("Conexão carregada do ambiente: key={} name={}", suffix, name);
                 } catch (BadRequestException invalidUrl) {
-                  log.warn(
-                      "CONN_URL_{} ignorada — URL inválida: {}", suffix, invalidUrl.getMessage());
+                    log.warn("CONN_URL_{} ignorada — URL inválida: {}", suffix, invalidUrl.getMessage());
                 }
-              }
-            });
-    log.info("{} conexão(ões) carregada(s) do ambiente", registry.size());
-  }
-
-  public void register(String key, String name, String url) {
-    if (registry.containsKey(key)) {
-      throw new ConflictException(
-          ErrorCode.CONNECTION_KEY_CONFLICT,
-          "Chave '%s' já registrada — use DELETE /v1/connections/%s antes de re-registrar"
-              .formatted(key, key));
+            }
+        });
+        log.info("{} conexão(ões) carregada(s) do ambiente", registry.size());
     }
-    String cleanedUrl = cleanAndValidateUrl(url, key);
-    registry.put(key, new Entry(name, cleanedUrl));
-    log.info("Conexão registrada via API: key={} name={}", key, name);
-  }
 
-  public String resolveUrl(String key) {
-    Entry entry = registry.get(key);
-    if (entry == null) {
-      throw new NotFoundException(
-          ErrorCode.CONNECTION_NOT_FOUND,
-          "Conexão '%s' não encontrada — defina CONN_URL_%s + CONN_NAME_%s ou registre via POST /v1/connections"
-              .formatted(key, key, key));
+    public void register(String key, String name, String url) {
+        if (registry.containsKey(key)) {
+            throw new ConflictException(
+                    ErrorCode.CONNECTION_KEY_CONFLICT,
+                    "Chave '%s' já registrada — use DELETE /v1/connections/%s antes de re-registrar"
+                            .formatted(key, key));
+        }
+        String cleanedUrl = cleanAndValidateUrl(url, key);
+        registry.put(key, new Entry(name, cleanedUrl));
+        log.info("Conexão registrada via API: key={} name={}", key, name);
     }
-    return entry.url();
-  }
 
-  public List<ConnectionSummary> list() {
-    return registry.entrySet().stream()
-        .map(entry -> new ConnectionSummary(entry.getKey(), entry.getValue().name()))
-        .sorted(Comparator.comparing(ConnectionSummary::key))
-        .toList();
-  }
-
-  public void remove(String key) {
-    if (registry.remove(key) == null) {
-      throw new NotFoundException(
-          ErrorCode.CONNECTION_NOT_FOUND, "Conexão '%s' não encontrada".formatted(key));
+    public String resolveUrl(String key) {
+        Entry entry = registry.get(key);
+        if (entry == null) {
+            throw new NotFoundException(
+                    ErrorCode.CONNECTION_NOT_FOUND,
+                    "Conexão '%s' não encontrada — defina CONN_URL_%s + CONN_NAME_%s ou registre via POST /v1/connections"
+                            .formatted(key, key, key));
+        }
+        return entry.url();
     }
-    log.info("Conexão removida: key={}", key);
-  }
 
-  private String cleanAndValidateUrl(String url, String key) {
-    String cleaned = url.strip();
-    boolean valid = VALID_URL_PREFIXES.stream().anyMatch(cleaned::startsWith);
-    if (!valid) {
-      throw new BadRequestException(
-          ErrorCode.BAD_REQUEST,
-          "URL da conexão '%s' inválida — deve iniciar com: %s"
-              .formatted(key, String.join(", ", VALID_URL_PREFIXES)));
+    public List<ConnectionSummary> list() {
+        return registry.entrySet().stream()
+                .map(entry ->
+                        new ConnectionSummary(entry.getKey(), entry.getValue().name()))
+                .sorted(Comparator.comparing(ConnectionSummary::key))
+                .toList();
     }
-    return cleaned;
-  }
 
-  public record ConnectionSummary(String key, String name) {}
+    public void remove(String key) {
+        if (registry.remove(key) == null) {
+            throw new NotFoundException(ErrorCode.CONNECTION_NOT_FOUND, "Conexão '%s' não encontrada".formatted(key));
+        }
+        log.info("Conexão removida: key={}", key);
+    }
+
+    private String cleanAndValidateUrl(String url, String key) {
+        String cleaned = url.strip();
+        boolean valid = VALID_URL_PREFIXES.stream().anyMatch(cleaned::startsWith);
+        if (!valid) {
+            throw new BadRequestException(
+                    ErrorCode.BAD_REQUEST,
+                    "URL da conexão '%s' inválida — deve iniciar com: %s"
+                            .formatted(key, String.join(", ", VALID_URL_PREFIXES)));
+        }
+        return cleaned;
+    }
+
+    public record ConnectionSummary(String key, String name) {}
 }

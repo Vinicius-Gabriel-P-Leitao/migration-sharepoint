@@ -15,25 +15,32 @@ import org.migration.sharepoint.data.model.FieldMapping;
 
 public interface MigrationWriter {
 
-  boolean supports(TargetDb targetDb);
+    boolean supports(TargetDb targetDb);
 
-  /**
-   * Executa full replace: apaga todo o conteúdo do destino e insere {@code rows}.
-   *
-   * @param connectionKey chave registrada no ConnectionRegistry
-   * @param targetName nome da tabela (SQL) ou collection (MongoDB)
-   * @param rows linhas já mapeadas — chave = nome da coluna de destino
-   * @param columnTypes mapa de coluna de destino → FieldMapping com tipo declarado
-   */
-  void write(
-      String connectionKey,
-      String targetName,
-      List<Map<String, Object>> rows,
-      Map<String, FieldMapping> columnTypes);
+    /**
+     * Executa full replace: apaga todo o conteúdo do destino e insere {@code rows}.
+     *
+     * @param connectionKey
+     *            chave registrada no ConnectionRegistry
+     * @param targetName
+     *            nome da tabela (SQL) ou collection (MongoDB)
+     * @param rows
+     *            linhas já mapeadas — chave = nome da coluna de destino
+     * @param columnTypes
+     *            mapa de coluna de destino → FieldMapping com tipo declarado
+     */
+    void write(
+            String connectionKey,
+            String targetName,
+            List<Map<String, Object>> rows,
+            Map<String, FieldMapping> columnTypes);
 
-  /** Tipos nativos suportados por este adapter (ex: "VARCHAR", "BIGINT", "TEXT"). */
-  List<String> nativeTypes();
+    /**
+     * Definições de tipos nativos deste adapter com especificação de parâmetros
+     * aceitos.
+     */
+    List<NativeTypeDefinition> typeDefinitions();
 
-  /** Mapeamento de tipos canônicos para os tipos nativos deste adapter. */
-  Map<ColumnType, String> canonicalMapping();
+    /** Mapeamento de tipos canônicos para os tipos nativos deste adapter. */
+    Map<ColumnType, String> canonicalMapping();
 }

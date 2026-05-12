@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 import org.migration.sharepoint.data.enums.JobStatus;
 
 public record LogResponse(
-    Long id,
-    Long jobId,
-    JobStatus status,
-    LocalDateTime startedAt,
-    LocalDateTime finishedAt,
-    String errorMessage) {}
+        Long id,
+        Long jobId,
+        JobStatus status,
+        LocalDateTime startedAt,
+        LocalDateTime finishedAt,
+        String errorMessage) {}

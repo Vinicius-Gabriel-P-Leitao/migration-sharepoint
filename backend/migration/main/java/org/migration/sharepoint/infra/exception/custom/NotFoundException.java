@@ -11,7 +11,7 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 
 public class NotFoundException extends AppException {
-  public NotFoundException(ErrorCode errorCode, String message) {
-    super(errorCode, message);
-  }
+    public NotFoundException(ErrorCode errorCode, String message) {
+        super(errorCode, message);
+    }
 }

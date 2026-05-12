@@ -8,8 +8,8 @@
 package org.migration.sharepoint.data.enums;
 
 public enum ScheduleType {
-  MANUAL,
-  INTERVAL,
-  CRON,
-  CONTINUOUS
+    MANUAL,
+    INTERVAL,
+    CRON,
+    CONTINUOUS
 }
