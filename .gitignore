@@ -37,3 +37,4 @@ out/
 .vscode/
 /.env
 /data/sharepoint.db
+/migration/main/resources/sharepoint.db
