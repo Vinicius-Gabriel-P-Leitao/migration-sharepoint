@@ -5,10 +5,8 @@
  * Licensed under the BSD 3-Clause License.
  * See LICENSE file in the project root for full license information.
  */
-package org.migration.sharepoint.controller.dto;
+package org.migration.sharepoint.controller.sharepoint.dto;
 
 import java.util.List;
-import java.util.Map;
-import org.migration.sharepoint.data.enums.ColumnType;
 
-public record AdapterTypesResponse(Map<ColumnType, String> canonical, List<String> nativeTypes) {}
+public record SharePointResolveResponse(String siteId, String listId, List<String> columns) {}

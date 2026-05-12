@@ -81,7 +81,7 @@ public class SharePointMigrationJob implements Job {
               .collect(Collectors.toMap(FieldMapping::column, fm -> fm));
 
       MigrationWriter writer = writerRegistry.get(job.getTargetDb());
-      writer.write(job.getConnectionString(), job.getTableName(), mapped, columnTypes);
+      writer.write(job.getConnectionKey(), job.getTableName(), mapped, columnTypes);
 
       migrationLog.setStatus(JobStatus.SUCCESS);
       migrationLog.setFinishedAt(LocalDateTime.now());

@@ -32,7 +32,12 @@ public enum ErrorCode {
   GRAPH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Timeout na comunicação com a Graph API"),
 
   TARGET_DB_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Banco de dados de destino não suportado"),
-  DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino");
+  DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino"),
+
+  CONNECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "Conexão não encontrada no registry"),
+  CONNECTION_KEY_CONFLICT(HttpStatus.CONFLICT, "Chave de conexão já registrada"),
+
+  SHAREPOINT_INVALID_URL(HttpStatus.BAD_REQUEST, "URL do SharePoint inválida ou não reconhecida");
 
   private final HttpStatus httpStatus;
   private final String message;

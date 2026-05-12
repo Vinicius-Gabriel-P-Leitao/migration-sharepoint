@@ -7,36 +7,65 @@
  */
 package org.migration.sharepoint.infra.config;
 
-import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
-import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.tags.Tag;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfig {
 
-  private static final String API_TITLE = "SP Migrator API";
-  private static final String API_VERSION = "0.0.1";
-  private static final String API_DESCRIPTION =
-      "API de gerenciamento de jobs de migração SharePoint → banco de dados";
-  private static final String SECURITY_SCHEME_NAME = "bearerAuth";
-
   @Bean
   public OpenAPI customOpenAPI() {
     return new OpenAPI()
-        .info(new Info().title(API_TITLE).version(API_VERSION).description(API_DESCRIPTION))
-        .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
-        .components(
-            new Components()
-                .addSecuritySchemes(
-                    SECURITY_SCHEME_NAME,
-                    new SecurityScheme()
-                        .name(SECURITY_SCHEME_NAME)
-                        .type(SecurityScheme.Type.HTTP)
-                        .scheme("bearer")
-                        .bearerFormat("JWT")));
+        .info(
+            new Info()
+                .title("SP Migrator API")
+                .version("0.0.1")
+                .description(
+                    """
+                    API de gerenciamento de jobs de migração SharePoint → banco de dados.
+
+                    ---
+
+                    **Fluxo básico**
+
+                    **1.** `POST /v1/connections`
+
+                    Registre a connection string do banco de destino.
+
+                    **2.** `POST /v1/sharepoint/resolve`
+
+                    Informe a URL da lista SharePoint e receba siteId, listId e colunas disponíveis.
+
+                    **3.** `POST /v1/jobs`
+
+                    Crie o job de migração referenciando a conexão e os campos mapeados.
+
+                    **4.** `POST /v1/jobs/{id}/run`
+
+                    Dispare a migração manualmente ou configure um agendamento.
+
+                    ---
+                    """))
+        .tags(
+            List.of(
+                new Tag()
+                    .name("Jobs")
+                    .description("Criação, edição, exclusão e execução de jobs de migração"),
+                new Tag()
+                    .name("Connections")
+                    .description(
+                        "Registry em memória de connection strings — as URLs nunca são persistidas no banco"),
+                new Tag()
+                    .name("SharePoint")
+                    .description(
+                        "Utilitários para descoberta de metadados de listas SharePoint via Graph API"),
+                new Tag()
+                    .name("Adapters")
+                    .description(
+                        "Consulta de tipos suportados por cada adapter de banco de destino")));
   }
 }

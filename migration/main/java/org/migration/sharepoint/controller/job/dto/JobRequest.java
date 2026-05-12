@@ -5,7 +5,7 @@
  * Licensed under the BSD 3-Clause License.
  * See LICENSE file in the project root for full license information.
  */
-package org.migration.sharepoint.controller.dto;
+package org.migration.sharepoint.controller.job.dto;
 
 import jakarta.validation.constraints.*;
 import java.util.Map;
@@ -23,7 +23,7 @@ public record JobRequest(
     // {"SharePointField": {"column": "db_col", "type": CANONICAL, "nativeType": "NATIVE"}}
     @NotEmpty Map<String, FieldMapping> fieldMappings,
     @NotNull TargetDb targetDb,
-    @NotBlank String connectionString,
+    @NotBlank String connectionKey,
     @NotBlank String tableName,
     @NotNull ScheduleType scheduleType,
     Long intervalValue,

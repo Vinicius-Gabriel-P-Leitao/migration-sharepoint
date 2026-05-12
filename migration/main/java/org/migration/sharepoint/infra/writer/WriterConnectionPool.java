@@ -12,16 +12,19 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.migration.sharepoint.infra.connection.ConnectionRegistry;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
 /**
- * Mantém um pool HikariCP por connection string, reutilizado entre execuções do mesmo job. Cada
- * pool é criado na primeira execução e fechado no shutdown do Spring.
+ * Mantém um pool HikariCP por connectionKey, reutilizado entre execuções do mesmo job. A URL real é
+ * resolvida via {@link ConnectionRegistry} — nunca fica armazenada aqui diretamente.
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class WriterConnectionPool implements DisposableBean {
 
   private static final int MAX_POOL_SIZE = 5;
@@ -29,15 +32,17 @@ public class WriterConnectionPool implements DisposableBean {
   private static final long IDLE_TIMEOUT_MS = 600_000;
   private static final long MAX_LIFETIME_MS = 1_800_000;
 
+  private final ConnectionRegistry connectionRegistry;
   private final ConcurrentHashMap<String, HikariDataSource> pools = new ConcurrentHashMap<>();
 
-  public Connection getConnection(String jdbcUrl) throws SQLException {
-    HikariDataSource ds = pools.computeIfAbsent(jdbcUrl, this::createPool);
+  public Connection getConnection(String connectionKey) throws SQLException {
+    String jdbcUrl = connectionRegistry.resolveUrl(connectionKey);
+    HikariDataSource ds = pools.computeIfAbsent(connectionKey, k -> createPool(k, jdbcUrl));
     return ds.getConnection();
   }
 
-  private HikariDataSource createPool(String jdbcUrl) {
-    log.info("Criando pool de conexões para: {}", maskCredentials(jdbcUrl));
+  private HikariDataSource createPool(String connectionKey, String jdbcUrl) {
+    log.info("Criando pool de conexões para key={}", connectionKey);
     HikariConfig config = new HikariConfig();
     config.setJdbcUrl(jdbcUrl);
     config.setMaximumPoolSize(MAX_POOL_SIZE);
@@ -45,12 +50,8 @@ public class WriterConnectionPool implements DisposableBean {
     config.setConnectionTimeout(CONNECTION_TIMEOUT_MS);
     config.setIdleTimeout(IDLE_TIMEOUT_MS);
     config.setMaxLifetime(MAX_LIFETIME_MS);
-    config.setPoolName("migration-writer-pool");
+    config.setPoolName("migration-writer-" + connectionKey);
     return new HikariDataSource(config);
-  }
-
-  private String maskCredentials(String url) {
-    return url.replaceAll("(?i)(password|passwd|pwd)=[^&;]+", "$1=***");
   }
 
   @Override

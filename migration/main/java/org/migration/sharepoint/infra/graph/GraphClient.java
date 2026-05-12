@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.infra.exception.ErrorCode;
+import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -209,6 +210,103 @@ public class GraphClient {
         .formatted(baseUrl, siteId, listId, expand, top);
   }
 
+  // -------------------------------------------------------------------------
+  // SharePoint URL resolver
+  // -------------------------------------------------------------------------
+
+  public record SharePointResolveResult(String siteId, String listId, List<String> columns) {}
+
+  /**
+   * Recebe uma URL de lista SharePoint no formato do browser e retorna siteId, listId e colunas
+   * disponíveis — tudo em uma única chamada ao cliente.
+   *
+   * <p>Exemplo de URL aceita: {@code
+   * https://tenant.sharepoint.com/sites/MySite/Lists/MyList/AllItems.aspx}
+   */
+  public SharePointResolveResult resolveSharePointUrl(String sharePointUrl) {
+    URI uri;
+    try {
+      uri = URI.create(sharePointUrl);
+    } catch (Exception invalidUrl) {
+      throw new BadRequestException(
+          ErrorCode.SHAREPOINT_INVALID_URL, "URL inválida: " + sharePointUrl);
+    }
+
+    String host = uri.getHost();
+    String path = uri.getPath();
+
+    int listsIdx = path.toLowerCase().indexOf("/lists/");
+    if (listsIdx == -1) {
+      throw new BadRequestException(
+          ErrorCode.SHAREPOINT_INVALID_URL,
+          "URL não contém /Lists/ — forneça a URL completa da lista SharePoint (ex: .../Lists/NomeDaLista/AllItems.aspx)");
+    }
+
+    String sitePath = path.substring(0, listsIdx);
+    String listName = path.substring(listsIdx + "/lists/".length()).split("/")[0];
+
+    String siteId = fetchSiteId(host, sitePath);
+    String listId = fetchListId(siteId, listName);
+    List<String> columns = fetchColumnNames(siteId, listId);
+
+    return new SharePointResolveResult(siteId, listId, columns);
+  }
+
+  private String fetchSiteId(String host, String sitePath) {
+    String url = "%s/sites/%s:%s".formatted(baseUrl, host, sitePath);
+    SiteResponse response =
+        restClient
+            .get()
+            .uri(URI.create(url))
+            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
+            .retrieve()
+            .body(SiteResponse.class);
+    if (response == null || response.id() == null) {
+      throw new InfrastructureException(
+          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
+          "Site não encontrado para host='%s' path='%s'".formatted(host, sitePath));
+    }
+    return response.id();
+  }
+
+  private String fetchListId(String siteId, String listName) {
+    String url = "%s/sites/%s/lists/%s".formatted(baseUrl, siteId, listName);
+    ListMetaResponse response =
+        restClient
+            .get()
+            .uri(URI.create(url))
+            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
+            .retrieve()
+            .body(ListMetaResponse.class);
+    if (response == null || response.id() == null) {
+      throw new InfrastructureException(
+          ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
+          "Lista '%s' não encontrada no site '%s'".formatted(listName, siteId));
+    }
+    return response.id();
+  }
+
+  private List<String> fetchColumnNames(String siteId, String listId) {
+    String url = "%s/sites/%s/lists/%s/columns".formatted(baseUrl, siteId, listId);
+    ColumnsResponse response =
+        restClient
+            .get()
+            .uri(URI.create(url))
+            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
+            .retrieve()
+            .body(ColumnsResponse.class);
+    if (response == null || response.value() == null) return List.of();
+    return response.value().stream()
+        .filter(col -> !col.hidden())
+        .map(ColumnItem::name)
+        .sorted()
+        .toList();
+  }
+
+  // -------------------------------------------------------------------------
+  // Internal record types
+  // -------------------------------------------------------------------------
+
   @JsonIgnoreProperties(ignoreUnknown = true)
   record GraphResponse(List<GraphItem> value, @JsonProperty("@odata.nextLink") String nextLink) {}
 
@@ -219,4 +317,16 @@ public class GraphClient {
   record TokenResponse(
       @JsonProperty("access_token") String accessToken,
       @JsonProperty("expires_in") long expiresIn) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record SiteResponse(String id) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record ListMetaResponse(String id) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record ColumnItem(String name, boolean hidden) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record ColumnsResponse(List<ColumnItem> value) {}
 }

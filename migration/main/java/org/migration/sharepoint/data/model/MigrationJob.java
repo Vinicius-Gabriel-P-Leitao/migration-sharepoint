@@ -52,8 +52,9 @@ public class MigrationJob {
   @Column(nullable = false)
   private TargetDb targetDb;
 
+  // Chave que referencia a connection string no ConnectionRegistry (nunca a URL em si)
   @Column(nullable = false)
-  private String connectionString;
+  private String connectionKey;
 
   @Column(nullable = false)
   private String tableName;

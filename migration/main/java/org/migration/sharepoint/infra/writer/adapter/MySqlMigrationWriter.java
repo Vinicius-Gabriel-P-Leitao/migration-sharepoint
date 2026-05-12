@@ -89,7 +89,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
   @Override
   public void write(
-      String connectionString,
+      String connectionKey,
       String targetName,
       List<Map<String, Object>> rows,
       Map<String, FieldMapping> columnTypes) {
@@ -101,7 +101,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
       return;
     }
 
-    try (Connection conn = connectionPool.getConnection(connectionString)) {
+    try (Connection conn = connectionPool.getConnection(connectionKey)) {
       String catalog = conn.getCatalog();
 
       List<String> requestedColumns = new ArrayList<>(rows.getFirst().keySet());
@@ -252,7 +252,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
                   })
               .collect(Collectors.joining(", "));
 
-      String placeholders = columns.stream().map(c -> "?").collect(Collectors.joining(", "));
+      String placeholders = columns.stream().map(col -> "?").collect(Collectors.joining(", "));
       String sql = "INSERT INTO %s (%s) VALUES (%s)".formatted(quotedTable, colList, placeholders);
 
       try (PreparedStatement stmt = conn.prepareStatement(sql)) {

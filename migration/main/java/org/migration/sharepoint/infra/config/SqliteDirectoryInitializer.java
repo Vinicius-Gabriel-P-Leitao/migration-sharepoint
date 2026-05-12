@@ -46,9 +46,9 @@ public class SqliteDirectoryInitializer implements BeanFactoryPostProcessor, Env
 
     try {
       Files.createDirectories(dir);
-    } catch (IOException e) {
+    } catch (IOException ioException) {
       throw new IllegalStateException(
-          "Não foi possível criar o diretório para o banco SQLite: " + dir, e);
+          "Não foi possível criar o diretório para o banco SQLite: " + dir, ioException);
     }
   }
 }

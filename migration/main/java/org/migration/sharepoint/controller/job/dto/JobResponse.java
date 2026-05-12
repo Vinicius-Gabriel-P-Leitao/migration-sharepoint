@@ -5,7 +5,7 @@
  * Licensed under the BSD 3-Clause License.
  * See LICENSE file in the project root for full license information.
  */
-package org.migration.sharepoint.controller.dto;
+package org.migration.sharepoint.controller.job.dto;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -22,7 +22,7 @@ public record JobResponse(
     Integer pageSize,
     Map<String, FieldMapping> fieldMappings,
     TargetDb targetDb,
-    String connectionString,
+    String connectionKey,
     String tableName,
     ScheduleType scheduleType,
     Long intervalValue,

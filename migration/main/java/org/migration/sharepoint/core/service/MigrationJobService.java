@@ -9,12 +9,13 @@ package org.migration.sharepoint.core.service;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.migration.sharepoint.controller.dto.JobRequest;
-import org.migration.sharepoint.controller.dto.JobResponse;
-import org.migration.sharepoint.controller.dto.LogResponse;
+import org.migration.sharepoint.controller.job.dto.JobRequest;
+import org.migration.sharepoint.controller.job.dto.JobResponse;
+import org.migration.sharepoint.controller.job.dto.LogResponse;
 import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
+import org.migration.sharepoint.infra.connection.ConnectionRegistry;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class MigrationJobService {
   private final MigrationJobRepository jobRepository;
   private final MigrationLogRepository logRepository;
   private final QuartzSchedulerService quartzSchedulerService;
+  private final ConnectionRegistry connectionRegistry;
 
   public List<JobResponse> findAll() {
     return jobRepository.findAll().stream().map(this::toResponse).toList();
@@ -38,6 +40,7 @@ public class MigrationJobService {
 
   @Transactional
   public JobResponse create(JobRequest request) {
+    connectionRegistry.resolveUrl(request.connectionKey());
     MigrationJob job = jobRepository.save(fromRequest(request));
     quartzSchedulerService.schedule(job);
     return toResponse(job);
@@ -45,6 +48,7 @@ public class MigrationJobService {
 
   @Transactional
   public JobResponse update(Long id, JobRequest request) {
+    connectionRegistry.resolveUrl(request.connectionKey());
     MigrationJob job = findOrThrow(id);
     applyRequest(job, request);
     job = jobRepository.save(job);
@@ -96,7 +100,7 @@ public class MigrationJobService {
         .pageSize(request.pageSize())
         .fieldMappings(request.fieldMappings())
         .targetDb(request.targetDb())
-        .connectionString(request.connectionString())
+        .connectionKey(request.connectionKey())
         .tableName(request.tableName())
         .scheduleType(request.scheduleType())
         .intervalValue(request.intervalValue())
@@ -112,7 +116,7 @@ public class MigrationJobService {
     job.setPageSize(request.pageSize());
     job.setFieldMappings(request.fieldMappings());
     job.setTargetDb(request.targetDb());
-    job.setConnectionString(request.connectionString());
+    job.setConnectionKey(request.connectionKey());
     job.setTableName(request.tableName());
     job.setScheduleType(request.scheduleType());
     job.setIntervalValue(request.intervalValue());
@@ -129,7 +133,7 @@ public class MigrationJobService {
         job.getPageSize(),
         job.getFieldMappings(),
         job.getTargetDb(),
-        job.getConnectionString(),
+        job.getConnectionKey(),
         job.getTableName(),
         job.getScheduleType(),
         job.getIntervalValue(),
