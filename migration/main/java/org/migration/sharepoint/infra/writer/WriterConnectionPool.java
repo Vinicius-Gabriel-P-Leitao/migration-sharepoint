@@ -11,16 +11,22 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.infra.connection.ConnectionRegistry;
+import org.migration.sharepoint.infra.exception.ErrorCode;
+import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
 /**
- * Mantém um pool HikariCP por connectionKey, reutilizado entre execuções do mesmo job. A URL real é
- * resolvida via {@link ConnectionRegistry} — nunca fica armazenada aqui diretamente.
+ * Mantém um pool HikariCP por connectionKey, reutilizado entre execuções do mesmo job. A URL real
+ * é resolvida via {@link ConnectionRegistry} — nunca fica armazenada aqui diretamente.
+ *
+ * <p>Se a inicialização do pool falhar, a key é marcada como inválida e todas as tentativas
+ * subsequentes falham imediatamente sem tentar reconectar.
  */
 @Slf4j
 @Component
@@ -34,11 +40,31 @@ public class WriterConnectionPool implements DisposableBean {
 
   private final ConnectionRegistry connectionRegistry;
   private final ConcurrentHashMap<String, HikariDataSource> pools = new ConcurrentHashMap<>();
+  private final Set<String> failedKeys = ConcurrentHashMap.newKeySet();
 
   public Connection getConnection(String connectionKey) throws SQLException {
+    if (failedKeys.contains(connectionKey)) {
+      throw new InfrastructureException(
+          ErrorCode.DB_CONNECTION_ERROR,
+          "Pool para key='%s' falhou na inicialização anterior — verifique a URL da conexão e reinicie o servidor ou re-registre a conexão via DELETE + POST /v1/connections"
+              .formatted(connectionKey));
+    }
+
     String jdbcUrl = connectionRegistry.resolveUrl(connectionKey);
-    HikariDataSource ds = pools.computeIfAbsent(connectionKey, k -> createPool(k, jdbcUrl));
-    return ds.getConnection();
+
+    try {
+      HikariDataSource ds =
+          pools.computeIfAbsent(connectionKey, key -> createPool(key, jdbcUrl));
+      return ds.getConnection();
+    } catch (RuntimeException poolException) {
+      failedKeys.add(connectionKey);
+      log.error(
+          "Falha ao inicializar pool para key='{}': {}", connectionKey, poolException.getMessage());
+      throw new InfrastructureException(
+          ErrorCode.DB_CONNECTION_ERROR,
+          "Falha ao conectar ao banco de dados para key='%s': %s"
+              .formatted(connectionKey, poolException.getMessage()));
+    }
   }
 
   private HikariDataSource createPool(String connectionKey, String jdbcUrl) {

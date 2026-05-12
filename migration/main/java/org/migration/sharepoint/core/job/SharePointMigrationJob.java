@@ -20,7 +20,9 @@ import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.model.MigrationLog;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
+import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
+import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.graph.GraphClient;
 import org.migration.sharepoint.infra.writer.MigrationWriter;
 import org.migration.sharepoint.infra.writer.MigrationWriterRegistry;
@@ -33,17 +35,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class SharePointMigrationJob implements Job {
 
   @Autowired private MigrationJobRepository jobRepository;
-
   @Autowired private MigrationLogRepository logRepository;
-
   @Autowired private GraphClient graphClient;
-
   @Autowired private MigrationWriterRegistry writerRegistry;
 
   @Override
   public void execute(JobExecutionContext context) throws JobExecutionException {
     Long jobId = context.getJobDetail().getJobDataMap().getLong("jobId");
-
     MDC.put("jobId", String.valueOf(jobId));
     try {
       executeInternal(jobId, context);
@@ -74,7 +72,7 @@ public class SharePointMigrationJob implements Job {
           graphClient.fetchListItems(
               job.getSiteId(), job.getListId(), job.getFieldMappings().keySet(), job.getPageSize());
 
-      List<Map<String, Object>> mapped = applyFieldMapping(raw, job.getFieldMappings());
+      List<Map<String, Object>> mapped = applyFieldMapping(raw, job.getFieldMappings(), jobId);
 
       Map<String, FieldMapping> columnTypes =
           job.getFieldMappings().values().stream()
@@ -95,7 +93,14 @@ public class SharePointMigrationJob implements Job {
           job.getTableName());
 
       if (job.getScheduleType() == ScheduleType.CONTINUOUS) {
-        context.getScheduler().triggerJob(context.getJobDetail().getKey());
+        try {
+          context.getScheduler().triggerJob(context.getJobDetail().getKey());
+        } catch (SchedulerException schedulerException) {
+          log.error(
+              "Job id={} CONTINUOUS: falha ao reagendar próxima execução — execução atual foi bem-sucedida",
+              jobId,
+              schedulerException);
+        }
       }
 
     } catch (AppException appException) {
@@ -107,33 +112,53 @@ public class SharePointMigrationJob implements Job {
       fail(migrationLog, appException.getMessage());
 
     } catch (Exception unexpectedException) {
+      String errorMessage =
+          unexpectedException.getMessage() != null
+              ? unexpectedException.getMessage()
+              : unexpectedException.getClass().getSimpleName();
       log.error("Job id={} falhou com erro inesperado", jobId, unexpectedException);
-      fail(migrationLog, unexpectedException.getMessage());
+      fail(migrationLog, errorMessage);
       throw new JobExecutionException(unexpectedException);
     }
   }
 
-  private void fail(MigrationLog log, String errorMessage) {
-    log.setStatus(JobStatus.FAILED);
-    log.setFinishedAt(LocalDateTime.now());
-    log.setErrorMessage(errorMessage);
-    logRepository.save(log);
+  private void fail(MigrationLog migrationLog, String errorMessage) {
+    migrationLog.setStatus(JobStatus.FAILED);
+    migrationLog.setFinishedAt(LocalDateTime.now());
+    migrationLog.setErrorMessage(errorMessage);
+    logRepository.save(migrationLog);
   }
 
   private List<Map<String, Object>> applyFieldMapping(
-      List<Map<String, Object>> rows, Map<String, FieldMapping> fieldMappings) {
-    return rows.stream()
-        .map(
-            row -> {
-              Map<String, Object> out = new LinkedHashMap<>();
-              fieldMappings.forEach(
-                  (spField, mapping) -> {
-                    if (row.containsKey(spField)) {
-                      out.put(mapping.column(), row.get(spField));
-                    }
-                  });
-              return out;
-            })
-        .toList();
+      List<Map<String, Object>> rows, Map<String, FieldMapping> fieldMappings, Long jobId) {
+    List<Map<String, Object>> mapped =
+        rows.stream()
+            .map(
+                row -> {
+                  Map<String, Object> out = new LinkedHashMap<>();
+                  fieldMappings.forEach(
+                      (spField, mapping) -> {
+                        if (row.containsKey(spField)) {
+                          out.put(mapping.column(), row.get(spField));
+                        }
+                      });
+                  return out;
+                })
+            .toList();
+
+    if (!mapped.isEmpty() && mapped.stream().allMatch(Map::isEmpty)) {
+      List<String> expectedFields = List.copyOf(fieldMappings.keySet());
+      log.warn(
+          "Job id={}: nenhum campo do fieldMappings encontrado nos dados do SharePoint. Campos esperados: {}",
+          jobId,
+          expectedFields);
+      throw new BadRequestException(
+          ErrorCode.MIGRATION_EMPTY_MAPPING,
+          "Nenhum campo do fieldMappings encontrado nos dados retornados pelo SharePoint. "
+              + "Campos esperados: %s — verifique os nomes dos campos na configuração do job"
+                  .formatted(expectedFields));
+    }
+
+    return mapped;
   }
 }

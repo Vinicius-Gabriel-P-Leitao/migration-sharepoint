@@ -36,36 +36,23 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
   private static final List<String> MYSQL_NATIVE_TYPES =
       List.of(
-          "TINYINT",
-          "SMALLINT",
-          "INT",
-          "BIGINT",
-          "FLOAT",
-          "DOUBLE",
-          "DECIMAL",
+          "TINYINT", "SMALLINT", "INT", "BIGINT",
+          "FLOAT", "DOUBLE", "DECIMAL",
           "TINYINT(1)",
-          "VARCHAR",
-          "TEXT",
-          "MEDIUMTEXT",
-          "LONGTEXT",
-          "DATE",
-          "DATETIME",
-          "TIMESTAMP");
+          "VARCHAR", "TEXT", "MEDIUMTEXT", "LONGTEXT",
+          "DATE", "DATETIME", "TIMESTAMP");
 
   private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP =
       Map.of(
-          ColumnType.TEXT,
-          "TEXT",
-          ColumnType.NUMBER,
-          "BIGINT",
-          ColumnType.DECIMAL,
-          "DOUBLE",
-          ColumnType.BOOLEAN,
-          "TINYINT(1)",
-          ColumnType.DATE,
-          "DATE",
-          ColumnType.DATETIME,
-          "DATETIME");
+          ColumnType.TEXT, "TEXT",
+          ColumnType.NUMBER, "BIGINT",
+          ColumnType.DECIMAL, "DOUBLE",
+          ColumnType.BOOLEAN, "TINYINT(1)",
+          ColumnType.DATE, "DATE",
+          ColumnType.DATETIME, "DATETIME");
+
+  // MySQL vendor error codes
+  private static final int MYSQL_ERR_NULL_VIOLATION = 1048;
 
   @Value("${writer.batch-size:500}")
   private int batchSize;
@@ -146,21 +133,14 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
     try (Statement stmt = conn.createStatement()) {
       String quotedTable = stmt.enquoteIdentifier(tableName, true);
-      String columnDefs =
-          columns.stream()
-              .map(
-                  col -> {
-                    try {
-                      String sqlType =
-                          columnTypes.containsKey(col)
-                              ? resolveType(col, columnTypes.get(col))
-                              : "TEXT";
-                      return stmt.enquoteIdentifier(col, true) + " " + sqlType;
-                    } catch (SQLException sqlException) {
-                      throw new RuntimeException(sqlException);
-                    }
-                  })
-              .collect(Collectors.joining(", "));
+
+      StringBuilder columnDefs = new StringBuilder();
+      for (int i = 0; i < columns.size(); i++) {
+        if (i > 0) columnDefs.append(", ");
+        String col = columns.get(i);
+        String sqlType = columnTypes.containsKey(col) ? resolveType(col, columnTypes.get(col)) : "TEXT";
+        columnDefs.append(stmt.enquoteIdentifier(col, true)).append(" ").append(sqlType);
+      }
 
       stmt.execute("CREATE TABLE IF NOT EXISTS %s (%s)".formatted(quotedTable, columnDefs));
       log.info("Tabela '{}' criada automaticamente", tableName);
@@ -171,8 +151,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
     if (mapping == null) {
       throw new BadRequestException(
           ErrorCode.BAD_REQUEST,
-          "Mapeamento ausente para a coluna '%s': informe 'type' ou 'nativeType'"
-              .formatted(column));
+          "Mapeamento ausente para a coluna '%s': informe 'type' ou 'nativeType'".formatted(column));
     }
 
     if (mapping.nativeType() != null && !mapping.nativeType().isBlank()) {
@@ -215,17 +194,20 @@ public class MySqlMigrationWriter implements MigrationWriter {
       throws SQLException {
     conn.setAutoCommit(false);
     try {
-      // enquoteIdentifier usa o quote char do próprio driver (` no MySQL).
-      // Internamente escapa qualquer ocorrência do quote char dentro do nome.
       try (Statement stmt = conn.createStatement()) {
         stmt.execute("DELETE FROM " + stmt.enquoteIdentifier(tableName, true));
       }
-
       batchInsert(conn, tableName, columns, rows, columnTypes);
       conn.commit();
-
     } catch (SQLException sqlException) {
-      conn.rollback();
+      try {
+        conn.rollback();
+      } catch (SQLException rollbackException) {
+        log.error(
+            "Falha ao executar rollback na tabela '{}': {}",
+            tableName,
+            rollbackException.getMessage());
+      }
       throw sqlException;
     }
   }
@@ -240,19 +222,14 @@ public class MySqlMigrationWriter implements MigrationWriter {
     try (Statement helper = conn.createStatement()) {
       String quotedTable = helper.enquoteIdentifier(tableName, true);
 
-      String colList =
-          columns.stream()
-              .map(
-                  col -> {
-                    try {
-                      return helper.enquoteIdentifier(col, true);
-                    } catch (SQLException sqlException) {
-                      throw new RuntimeException(sqlException);
-                    }
-                  })
-              .collect(Collectors.joining(", "));
+      StringBuilder colListBuilder = new StringBuilder();
+      for (int i = 0; i < columns.size(); i++) {
+        if (i > 0) colListBuilder.append(", ");
+        colListBuilder.append(helper.enquoteIdentifier(columns.get(i), true));
+      }
+      String colList = colListBuilder.toString();
 
-      String placeholders = columns.stream().map(col -> "?").collect(Collectors.joining(", "));
+      String placeholders = ",?".repeat(columns.size()).substring(1);
       String sql = "INSERT INTO %s (%s) VALUES (%s)".formatted(quotedTable, colList, placeholders);
 
       try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -260,7 +237,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
         for (Map<String, Object> row : rows) {
           for (int it = 0; it < columns.size(); it++) {
             String col = columns.get(it);
-            Object value = convertValue(row.get(col), columnTypes.get(col));
+            Object value = convertValue(row.get(col), columnTypes.get(col), col);
             stmt.setObject(it + 1, value);
           }
 
@@ -277,16 +254,27 @@ public class MySqlMigrationWriter implements MigrationWriter {
         if (count % batchSize != 0) {
           stmt.executeBatch();
         }
+
       } catch (SQLIntegrityConstraintViolationException constraintViolation) {
+        if (constraintViolation.getErrorCode() == MYSQL_ERR_NULL_VIOLATION) {
+          log.warn(
+              "Violação NOT NULL na tabela '{}': {}", tableName, constraintViolation.getMessage());
+          throw new ConflictException(
+              ErrorCode.MIGRATION_NULL_VIOLATION,
+              "Campo obrigatório recebeu valor nulo do SharePoint na tabela '%s': %s"
+                  .formatted(tableName, constraintViolation.getMessage()));
+        }
+        log.warn(
+            "Conflito de integridade na tabela '{}': {}", tableName, constraintViolation.getMessage());
         throw new ConflictException(
             ErrorCode.MIGRATION_CONFLICT,
-            "Conflito de integridade ao inserir dados: %s"
-                .formatted(constraintViolation.getMessage()));
+            "Conflito de integridade ao inserir dados na tabela '%s': %s"
+                .formatted(tableName, constraintViolation.getMessage()));
       }
     }
   }
 
-  private Object convertValue(Object value, FieldMapping mapping) {
+  private Object convertValue(Object value, FieldMapping mapping, String column) {
     if (value == null || mapping == null) return value;
 
     String raw = value instanceof String s ? s : null;
@@ -306,14 +294,22 @@ public class MySqlMigrationWriter implements MigrationWriter {
     if (isDatetime) {
       try {
         return LocalDateTime.ofInstant(Instant.parse(raw), ZoneOffset.UTC);
-      } catch (Exception ignored) {
+      } catch (Exception parseException) {
+        log.warn(
+            "Falha ao converter coluna '{}' para DATETIME — valor='{}' não é ISO 8601 válido, passando raw",
+            column,
+            raw);
         return value;
       }
     }
     if (isDate) {
       try {
         return LocalDateTime.ofInstant(Instant.parse(raw), ZoneOffset.UTC).toLocalDate();
-      } catch (Exception ignored) {
+      } catch (Exception parseException) {
+        log.warn(
+            "Falha ao converter coluna '{}' para DATE — valor='{}' não é ISO 8601 válido, passando raw",
+            column,
+            raw);
         return value;
       }
     }
@@ -338,21 +334,22 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
   private void validateTableName(String tableName) {
     if (!tableName.matches("[a-zA-Z0-9_]+")) {
-      throw new BadRequestException(ErrorCode.BAD_REQUEST, "Nome de tabela inválido: " + tableName);
+      throw new BadRequestException(
+          ErrorCode.BAD_REQUEST, "Nome de tabela inválido: " + tableName);
     }
   }
 
   private void validateNoNestedPaths(List<Map<String, Object>> rows) {
     if (rows.isEmpty()) return;
     rows.getFirst().keySet().stream()
-        .filter(it -> it.contains("."))
+        .filter(key -> key.contains("."))
         .findFirst()
         .ifPresent(
-            it -> {
+            key -> {
               throw new BadRequestException(
                   ErrorCode.BAD_REQUEST,
                   "Nome de coluna inválido para SQL: '%s' — dot-notation é exclusivo do adapter MongoDB"
-                      .formatted(it));
+                      .formatted(key));
             });
   }
 }

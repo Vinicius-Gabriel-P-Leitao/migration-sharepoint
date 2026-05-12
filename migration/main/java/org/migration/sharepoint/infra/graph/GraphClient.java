@@ -254,53 +254,91 @@ public class GraphClient {
 
   private String fetchSiteId(String host, String sitePath) {
     String url = "%s/sites/%s:%s".formatted(baseUrl, host, sitePath);
-    SiteResponse response =
-        restClient
-            .get()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
-            .retrieve()
-            .body(SiteResponse.class);
+    String context = "site host='%s' path='%s'".formatted(host, sitePath);
+    SiteResponse response = authenticatedGet(url, SiteResponse.class, context);
     if (response == null || response.id() == null) {
       throw new InfrastructureException(
           ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
-          "Site não encontrado para host='%s' path='%s'".formatted(host, sitePath));
+          "Site não encontrado para %s".formatted(context));
     }
     return response.id();
   }
 
   private String fetchListId(String siteId, String listName) {
     String url = "%s/sites/%s/lists/%s".formatted(baseUrl, siteId, listName);
-    ListMetaResponse response =
-        restClient
-            .get()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
-            .retrieve()
-            .body(ListMetaResponse.class);
+    String context = "lista '%s' no site '%s'".formatted(listName, siteId);
+    ListMetaResponse response = authenticatedGet(url, ListMetaResponse.class, context);
     if (response == null || response.id() == null) {
       throw new InfrastructureException(
           ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
-          "Lista '%s' não encontrada no site '%s'".formatted(listName, siteId));
+          "Lista não encontrada: %s".formatted(context));
     }
     return response.id();
   }
 
   private List<String> fetchColumnNames(String siteId, String listId) {
     String url = "%s/sites/%s/lists/%s/columns".formatted(baseUrl, siteId, listId);
-    ColumnsResponse response =
-        restClient
-            .get()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer %s".formatted(getAccessToken()))
-            .retrieve()
-            .body(ColumnsResponse.class);
+    String context = "colunas da lista '%s'".formatted(listId);
+    ColumnsResponse response = authenticatedGet(url, ColumnsResponse.class, context);
     if (response == null || response.value() == null) return List.of();
     return response.value().stream()
         .filter(col -> !col.hidden())
         .map(ColumnItem::name)
         .sorted()
         .toList();
+  }
+
+  private <T> T authenticatedGet(String url, Class<T> type, String context) {
+    try {
+      return restClient
+          .get()
+          .uri(URI.create(url))
+          .header("Authorization", "Bearer %s".formatted(getAccessToken()))
+          .retrieve()
+          .body(type);
+    } catch (HttpClientErrorException httpClientError) {
+      throw switch (httpClientError.getStatusCode().value()) {
+        case 401 ->
+            new InfrastructureException(
+                ErrorCode.GRAPH_UNAUTHORIZED,
+                "Token rejeitado ao acessar %s (HTTP 401)".formatted(context));
+        case 403 ->
+            new InfrastructureException(
+                ErrorCode.GRAPH_FORBIDDEN,
+                "Sem permissão para acessar %s (HTTP 403)".formatted(context));
+        case 404 ->
+            new InfrastructureException(
+                ErrorCode.GRAPH_SITE_OR_LIST_NOT_FOUND,
+                "%s não encontrado (HTTP 404)".formatted(context));
+        case 429 ->
+            new InfrastructureException(
+                ErrorCode.GRAPH_RATE_LIMITED,
+                "Rate limit atingido ao acessar %s (HTTP 429)".formatted(context));
+        default ->
+            new InfrastructureException(
+                ErrorCode.GRAPH_API_ERROR,
+                "Erro HTTP %d ao acessar %s: %s"
+                    .formatted(
+                        httpClientError.getStatusCode().value(),
+                        context,
+                        httpClientError.getResponseBodyAsString()));
+      };
+    } catch (HttpServerErrorException httpServerError) {
+      throw new InfrastructureException(
+          ErrorCode.GRAPH_UNAVAILABLE,
+          "Graph API indisponível ao acessar %s (HTTP %d)"
+              .formatted(context, httpServerError.getStatusCode().value()));
+    } catch (ResourceAccessException networkError) {
+      throw new InfrastructureException(
+          ErrorCode.GRAPH_TIMEOUT,
+          "Timeout ao acessar %s: %s".formatted(context, networkError.getMessage()));
+    } catch (InfrastructureException | BadRequestException appException) {
+      throw appException;
+    } catch (Exception unexpectedException) {
+      throw new InfrastructureException(
+          ErrorCode.GRAPH_API_ERROR,
+          "Erro inesperado ao acessar %s: %s".formatted(context, unexpectedException.getMessage()));
+    }
   }
 
   // -------------------------------------------------------------------------

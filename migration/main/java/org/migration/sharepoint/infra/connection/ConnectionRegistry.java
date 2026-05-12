@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.infra.exception.ErrorCode;
+import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.ConflictException;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,15 @@ public class ConnectionRegistry {
   private static final String URL_PREFIX = "CONN_URL_";
   private static final String NAME_PREFIX = "CONN_NAME_";
 
+  private static final List<String> VALID_URL_PREFIXES =
+      List.of(
+          "jdbc:mysql://",
+          "jdbc:postgresql://",
+          "jdbc:mariadb://",
+          "jdbc:sqlite:",
+          "mongodb://",
+          "mongodb+srv://");
+
   private record Entry(String name, String url) {}
 
   private final ConcurrentHashMap<String, Entry> registry = new ConcurrentHashMap<>();
@@ -50,20 +60,26 @@ public class ConnectionRegistry {
                 String suffix = key.substring(URL_PREFIX.length());
                 String name = System.getenv(NAME_PREFIX + suffix);
 
-                if (name != null && !name.isBlank()) {
-                  registry.put(suffix, new Entry(name, value));
-                  log.info("Conexão carregada do ambiente: key={} name={}", suffix, name);
-                } else {
+                if (name == null || name.isBlank()) {
                   log.warn(
                       "{}{} definida sem {}{} correspondente — ignorada",
                       URL_PREFIX,
                       suffix,
                       NAME_PREFIX,
                       suffix);
+                  return;
+                }
+
+                try {
+                  String cleanedUrl = cleanAndValidateUrl(value, suffix);
+                  registry.put(suffix, new Entry(name, cleanedUrl));
+                  log.info("Conexão carregada do ambiente: key={} name={}", suffix, name);
+                } catch (BadRequestException invalidUrl) {
+                  log.warn(
+                      "CONN_URL_{} ignorada — URL inválida: {}", suffix, invalidUrl.getMessage());
                 }
               }
             });
-
     log.info("{} conexão(ões) carregada(s) do ambiente", registry.size());
   }
 
@@ -74,8 +90,8 @@ public class ConnectionRegistry {
           "Chave '%s' já registrada — use DELETE /v1/connections/%s antes de re-registrar"
               .formatted(key, key));
     }
-
-    registry.put(key, new Entry(name, url));
+    String cleanedUrl = cleanAndValidateUrl(url, key);
+    registry.put(key, new Entry(name, cleanedUrl));
     log.info("Conexão registrada via API: key={} name={}", key, name);
   }
 
@@ -102,8 +118,19 @@ public class ConnectionRegistry {
       throw new NotFoundException(
           ErrorCode.CONNECTION_NOT_FOUND, "Conexão '%s' não encontrada".formatted(key));
     }
-
     log.info("Conexão removida: key={}", key);
+  }
+
+  private String cleanAndValidateUrl(String url, String key) {
+    String cleaned = url.strip();
+    boolean valid = VALID_URL_PREFIXES.stream().anyMatch(cleaned::startsWith);
+    if (!valid) {
+      throw new BadRequestException(
+          ErrorCode.BAD_REQUEST,
+          "URL da conexão '%s' inválida — deve iniciar com: %s"
+              .formatted(key, String.join(", ", VALID_URL_PREFIXES)));
+    }
+    return cleaned;
   }
 
   public record ConnectionSummary(String key, String name) {}
