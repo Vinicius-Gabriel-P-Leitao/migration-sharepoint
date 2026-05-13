@@ -65,9 +65,11 @@ public class MigrationJobService {
         validateScheduleFields(request);
         validateNode(request.migration(), "migration", null);
         connectionRegistry.resolveUrl(request.connectionKey());
+
         MigrationJob job = findOrThrow(id);
         applyRequest(job, request);
         job = jobRepository.save(job);
+
         quartzSchedulerService.reschedule(job);
         return toResponse(job);
     }
@@ -127,8 +129,11 @@ public class MigrationJobService {
 
     private void validateRequiredNodeMetadata(JobNode node, String path) {
         if (isStringEmpty(node.getSiteId())) throwBadRequest("%s.siteId não pode ser vazio".formatted(path));
+
         if (isStringEmpty(node.getListId())) throwBadRequest("%s.listId não pode ser vazio".formatted(path));
+
         if (isStringEmpty(node.getTableName())) throwBadRequest("%s.tableName não pode ser vazio".formatted(path));
+
         if (node.getFieldMappings() == null || node.getFieldMappings().isEmpty()) {
             throwBadRequest("%s.fieldMappings não pode ser vazio".formatted(path));
         }
@@ -137,10 +142,8 @@ public class MigrationJobService {
     private List<String> extractAvailableColumns(JobNode node) {
         Stream<String> mappedColumns = node.getFieldMappings().values().stream().map(FieldMapping::getColumn);
 
-        Stream<String> customColumns = Optional.ofNullable(node.getCustomFields())
-                .map(Map::values)
-                .map(Collection::stream)
-                .orElse(Stream.empty())
+        Stream<String> customColumns = Optional.ofNullable(node.getCustomFields()).map(Map::values).stream()
+                .flatMap(Collection::stream)
                 .map(CustomFieldDefinition::getColumn);
 
         return Stream.concat(mappedColumns, customColumns)
@@ -170,6 +173,7 @@ public class MigrationJobService {
                 throwBadRequest("%s.localColumn '%s' não existe no nodo"
                         .formatted(foreignKeyPath, foreignKey.getLocalColumn()));
             }
+
             if (!availableParentColumns.contains(foreignKey.getParentColumn())) {
                 throwBadRequest("%s.parentColumn '%s' não existe no nodo pai"
                         .formatted(foreignKeyPath, foreignKey.getParentColumn()));
@@ -214,10 +218,8 @@ public class MigrationJobService {
             return mapping;
         }
 
-        return Optional.ofNullable(node.getCustomFields())
-                .map(Map::values)
-                .map(Collection::stream)
-                .orElse(Stream.empty())
+        return Optional.ofNullable(node.getCustomFields()).map(Map::values).stream()
+                .flatMap(Collection::stream)
                 .filter(cf -> column.equals(cf.getColumn()))
                 .map(cf -> new FieldMapping(
                         cf.getColumn(), cf.getType(), cf.getNativeType(), cf.isPrimaryKey(), cf.isUniqueKey()))

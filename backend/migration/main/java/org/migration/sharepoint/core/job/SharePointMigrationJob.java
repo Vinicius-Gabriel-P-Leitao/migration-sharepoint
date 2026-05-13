@@ -200,18 +200,17 @@ public class SharePointMigrationJob implements Job {
 
         List<Map<String, Object>> mappedData = applyFieldMapping(rawData, node.getFieldMappings());
 
-        // --- RELATIONSHIP RESOLUTION ---
         injectCustomFields(
                 mappedData, Optional.ofNullable(node.getCustomFields()).orElse(Map.of()));
         resolveForeignKeys(node, mappedData, context, parent);
 
-        // --- SELF-NORMALIZATION / DISTINCT LOGIC ---
         List<String> uniqueCols = node.getFieldMappings().values().stream()
                 .filter(FieldMapping::isUniqueKey)
                 .map(FieldMapping::getColumn)
                 .toList();
 
         List<Map<String, Object>> dataToWrite;
+
         if (!uniqueCols.isEmpty()) {
             dataToWrite = mappedData.stream().filter(distinctByKeys(uniqueCols)).collect(Collectors.toList());
         } else {
@@ -232,7 +231,6 @@ public class SharePointMigrationJob implements Job {
                 node.getForeignKeys(),
                 parent);
 
-        // Map ALL items (even filtered ones) to the generated IDs
         populateRelationalContext(node.getTableName(), mappedData, dataToWrite, generatedKeys, uniqueCols, context);
 
         log.info(
@@ -271,13 +269,14 @@ public class SharePointMigrationJob implements Job {
         if (parent == null || node.getForeignKeys() == null) return;
         node.getForeignKeys()
                 .forEach(foreignKey -> data.forEach(row -> {
-                    // Priority 1: Use the value already in the column (if it's a source ID from another list)
+                    // Prioridade 1: Use o valor já presente na coluna (se for um ID de origem de outra lista)
                     Object lookupValue = row.get(foreignKey.getLocalColumn());
 
-                    // Priority 2: SELF-NORMALIZATION. If the column is empty (e.g. STATIC_VALUE: ""),
-                    // it means we are extracting the parent from the SAME list item.
-                    // We use the item's own SharePoint ID to find the ID of the parent record
-                    // created for this same list item.
+                    // Prioridade 2: AUTONORMALIZAÇÃO. Se a coluna estiver vazia (por exemplo, STATIC_VALUE: ""),
+                    // significa que estamos extraindo o pai do MESMO item da lista.
+
+                    // Usamos o próprio ID do SharePoint do item para encontrar o ID do registro pai
+                    // criado para este mesmo item da lista.
                     if (lookupValue == null || (lookupValue instanceof String s && s.isBlank())) {
                         lookupValue = row.get("_sp_id");
                     }
@@ -297,33 +296,34 @@ public class SharePointMigrationJob implements Job {
             List<String> uniqueCols,
             RelationalContext context) {
 
-        // 1. Create a lookup of [UniqueValueCombo] -> [DatabaseID]
         Map<List<Object>, Long> valueToDbId = new HashMap<>();
+
         if (!uniqueCols.isEmpty() && writtenData.size() == generatedKeys.size()) {
-            for (int i = 0; i < writtenData.size(); i++) {
+            for (int it = 0; it < writtenData.size(); it++) {
                 List<Object> values = uniqueCols.stream()
-                        .map(writtenData.get(i)::get)
+                        .map(writtenData.get(it)::get)
                         .map(val -> val instanceof String s ? s.trim().toUpperCase() : val)
                         .toList();
-                valueToDbId.put(values, generatedKeys.get(i));
+                valueToDbId.put(values, generatedKeys.get(it));
             }
         }
 
         // 2. Map every SharePoint item to a Database ID
-        for (int i = 0; i < allMappedData.size(); i++) {
-            Map<String, Object> row = allMappedData.get(i);
+        for (int it = 0; it < allMappedData.size(); it++) {
+            Map<String, Object> row = allMappedData.get(it);
             Object spId = row.get("_sp_id");
 
             Long dbId;
             if (uniqueCols.isEmpty()) {
                 // Standard 1:1 mapping (indices correspond if no distinct filter used)
-                dbId = (i < generatedKeys.size()) ? generatedKeys.get(i) : null;
+                dbId = (it < generatedKeys.size()) ? generatedKeys.get(it) : null;
             } else {
                 // N:1 mapping (Self-Normalization)
                 List<Object> values = uniqueCols.stream()
                         .map(row::get)
                         .map(val -> val instanceof String s ? s.trim().toUpperCase() : val)
                         .toList();
+
                 dbId = valueToDbId.get(values);
             }
 

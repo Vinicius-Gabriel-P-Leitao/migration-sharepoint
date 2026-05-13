@@ -357,20 +357,6 @@ public class MySqlMigrationWriter implements MigrationWriter {
                         mapping.isAutoIncrement() ? " AUTO_INCREMENT" : "");
     }
 
-    private String formatConstraints(
-            Statement statement, String table, String parent, List<ForeignKeyDefinition> foreignKeys) {
-        return Optional.ofNullable(parent)
-                .filter(p -> foreignKeys != null && !foreignKeys.isEmpty())
-                .map(p -> foreignKeys.stream()
-                        .map(fk -> ",CONSTRAINT %s FOREIGN KEY(%s) REFERENCES %s(%s)"
-                                .formatted(
-                                        enquote(statement, "fk_" + table + "_" + fk.getLocalColumn()),
-                                                enquote(statement, fk.getLocalColumn()),
-                                        enquote(statement, p), enquote(statement, fk.getParentColumn())))
-                        .collect(Collectors.joining()))
-                .orElse("");
-    }
-
     String resolveType(FieldMapping mapping) {
         return Optional.ofNullable(mapping.getNativeType())
                 .filter(nativeType -> !nativeType.isBlank())

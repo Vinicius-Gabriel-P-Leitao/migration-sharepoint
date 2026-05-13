@@ -35,6 +35,7 @@ public class CustomErrorController implements ErrorController {
         if (status != null) {
             int statusCode = Integer.parseInt(status.toString());
             httpStatus = HttpStatus.resolve(statusCode);
+
             if (httpStatus == null) httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
         }
 

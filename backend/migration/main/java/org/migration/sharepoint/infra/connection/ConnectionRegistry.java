@@ -97,6 +97,7 @@ public class ConnectionRegistry {
                     "Conexão '%s' não encontrada — defina CONN_URL_%s + CONN_NAME_%s ou registre via POST /v1/connections"
                             .formatted(key, key, key));
         }
+
         return entry.url();
     }
 
