@@ -230,10 +230,12 @@ class SharePointMigrationJobTest {
     void shouldHandleSparseSharePointDataWithoutNPE() throws Exception {
         MigrationJob job = buildJob(ScheduleType.MANUAL);
         // "Amount" is missing in second row, "Title" is null in second row
-        List<Map<String, Object>> spData = List.of(
-            Map.of("id", "1", "Title", "Row 1", "Amount", 10),
-            new HashMap<>() {{ put("id", "2"); put("Title", null); }} 
-        );
+        List<Map<String, Object>> spData = List.of(Map.of("id", "1", "Title", "Row 1", "Amount", 10), new HashMap<>() {
+            {
+                put("id", "2");
+                put("Title", null);
+            }
+        });
 
         MigrationWriter writer = mock(MigrationWriter.class);
         when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));

@@ -26,7 +26,9 @@ import org.migration.sharepoint.data.repository.MigrationLogRepository;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
+import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.migration.sharepoint.infra.graph.GraphClient;
+import org.migration.sharepoint.infra.writer.MigrationWriter;
 import org.migration.sharepoint.infra.writer.MigrationWriterRegistry;
 import org.quartz.*;
 import org.slf4j.MDC;
@@ -216,15 +218,19 @@ public class SharePointMigrationJob implements Job {
             dataToWrite = mappedData;
         }
 
-        List<Long> generatedKeys = writerRegistry
-                .get(targetDb)
-                .write(
-                        connectionKey,
-                        node.getTableName(),
-                        dataToWrite,
-                        buildCombinedTypes(node),
-                        node.getForeignKeys(),
-                        parent);
+        MigrationWriter writer = writerRegistry.get(targetDb);
+        if (writer == null) {
+            throw new InfrastructureException(
+                    ErrorCode.INTERNAL_SERVER_ERROR, "Writer não encontrado para o banco %s".formatted(targetDb));
+        }
+
+        List<Long> generatedKeys = writer.write(
+                connectionKey,
+                node.getTableName(),
+                dataToWrite,
+                buildCombinedTypes(node),
+                node.getForeignKeys(),
+                parent);
 
         // Map ALL items (even filtered ones) to the generated IDs
         populateRelationalContext(node.getTableName(), mappedData, dataToWrite, generatedKeys, uniqueCols, context);
@@ -399,12 +405,14 @@ public class SharePointMigrationJob implements Job {
                     });
                     return mappedRow;
                 })
-                .filter(row -> row.size() > 1) // Must have more than just _sp_id
                 .collect(Collectors.toList());
 
-        if (!rows.isEmpty() && mappedRows.isEmpty()) {
-            throw new BadRequestException(
-                    ErrorCode.MIGRATION_EMPTY_MAPPING, "Nenhum campo mapeado encontrado nos dados do SharePoint.");
+        if (!rows.isEmpty()) {
+            boolean hasAnyMappedField = mappedRows.stream().anyMatch(row -> row.size() > 1);
+            if (!hasAnyMappedField) {
+                throw new BadRequestException(
+                        ErrorCode.MIGRATION_EMPTY_MAPPING, "Nenhum campo mapeado encontrado nos dados do SharePoint.");
+            }
         }
         return mappedRows;
     }

@@ -34,19 +34,15 @@ class MySqlMigrationWriterTest {
 
     @Test
     void shouldResolveCanonicalTypeWhenNativeTypeIsMissing() {
-        FieldMapping mapping = FieldMapping.builder()
-                .type(ColumnType.NUMBER)
-                .build();
+        FieldMapping mapping = FieldMapping.builder().type(ColumnType.NUMBER).build();
 
         assertThat(writer.resolveType(mapping)).isEqualTo("BIGINT");
     }
 
     @Test
     void shouldResolveVarcharForTextPrimaryKey() {
-        FieldMapping mapping = FieldMapping.builder()
-                .type(ColumnType.TEXT)
-                .primaryKey(true)
-                .build();
+        FieldMapping mapping =
+                FieldMapping.builder().type(ColumnType.TEXT).primaryKey(true).build();
 
         assertThat(writer.resolveType(mapping)).isEqualTo("VARCHAR(255)");
     }
