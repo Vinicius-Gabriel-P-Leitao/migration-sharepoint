@@ -7,17 +7,19 @@
  */
 package org.migration.sharepoint.core.service;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.controller.job.dto.JobRequest;
 import org.migration.sharepoint.controller.job.dto.JobResponse;
 import org.migration.sharepoint.controller.job.dto.LogResponse;
+import org.migration.sharepoint.data.enums.ColumnType;
+import org.migration.sharepoint.data.model.CustomFieldDefinition;
 import org.migration.sharepoint.data.model.FieldMapping;
 import org.migration.sharepoint.data.model.ForeignKeyDefinition;
 import org.migration.sharepoint.data.model.JobNode;
@@ -51,7 +53,7 @@ public class MigrationJobService {
     @Transactional
     public JobResponse create(JobRequest request) {
         validateScheduleFields(request);
-        validateNode(request.migration(), "migration", List.of());
+        validateNode(request.migration(), "migration", null);
         connectionRegistry.resolveUrl(request.connectionKey());
         MigrationJob job = jobRepository.save(fromRequest(request));
         quartzSchedulerService.schedule(job);
@@ -61,7 +63,7 @@ public class MigrationJobService {
     @Transactional
     public JobResponse update(Long id, JobRequest request) {
         validateScheduleFields(request);
-        validateNode(request.migration(), "migration", List.of());
+        validateNode(request.migration(), "migration", null);
         connectionRegistry.resolveUrl(request.connectionKey());
         MigrationJob job = findOrThrow(id);
         applyRequest(job, request);
@@ -114,12 +116,12 @@ public class MigrationJobService {
         }
     }
 
-    private void validateNode(JobNode node, String path, List<String> availableParentColumns) {
+    private void validateNode(JobNode node, String path, JobNode parentNode) {
         validateRequiredNodeMetadata(node, path);
 
         List<String> availableNodeColumns = extractAvailableColumns(node);
 
-        validateForeignKeyIntegrity(node, path, availableParentColumns, availableNodeColumns);
+        validateForeignKeyIntegrity(node, path, parentNode, availableNodeColumns);
         validateChildrenRecursively(node, path, availableNodeColumns);
     }
 
@@ -133,13 +135,13 @@ public class MigrationJobService {
     }
 
     private List<String> extractAvailableColumns(JobNode node) {
-        Stream<String> mappedColumns = node.fieldMappings().values().stream()
-                .map(FieldMapping::column);
+        Stream<String> mappedColumns = node.fieldMappings().values().stream().map(FieldMapping::column);
 
         Stream<String> customColumns = Optional.ofNullable(node.customFields())
-                .map(Map::keySet)
-                .map(Set::stream)
-                .orElse(Stream.empty());
+                .map(Map::values)
+                .map(Collection::stream)
+                .orElse(Stream.empty())
+                .map(CustomFieldDefinition::column);
 
         return Stream.concat(mappedColumns, customColumns)
                 .filter(Objects::nonNull)
@@ -149,13 +151,16 @@ public class MigrationJobService {
     }
 
     private void validateForeignKeyIntegrity(
-            JobNode node, String path, List<String> availableParentColumns, List<String> availableNodeColumns) {
-        List<ForeignKeyDefinition> foreignKeys = Optional.ofNullable(node.foreignKeys()).orElse(List.of());
+            JobNode node, String path, JobNode parentNode, List<String> availableNodeColumns) {
+        List<ForeignKeyDefinition> foreignKeys =
+                Optional.ofNullable(node.foreignKeys()).orElse(List.of());
         if (foreignKeys.isEmpty()) return;
 
-        if (availableParentColumns.isEmpty()) {
+        if (parentNode == null) {
             throwBadRequest("%s não pode ter chaves estrangeiras pois é o nodo raiz".formatted(path));
         }
+
+        List<String> availableParentColumns = extractAvailableColumns(parentNode);
 
         IntStream.range(0, foreignKeys.size()).forEach(index -> {
             ForeignKeyDefinition foreignKey = foreignKeys.get(index);
@@ -166,17 +171,67 @@ public class MigrationJobService {
                         "%s.localColumn '%s' não existe no nodo".formatted(foreignKeyPath, foreignKey.localColumn()));
             }
             if (!availableParentColumns.contains(foreignKey.parentColumn())) {
-                throwBadRequest(
-                        "%s.parentColumn '%s' não existe no nodo pai".formatted(foreignKeyPath, foreignKey.parentColumn()));
+                throwBadRequest("%s.parentColumn '%s' não existe no nodo pai"
+                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+            }
+
+            // Validação de Unicidade no Pai
+            FieldMapping parentMapping = findFieldMappingByColumn(parentNode, foreignKey.parentColumn())
+                    .orElse(null);
+
+            if (parentMapping == null) {
+                throwBadRequest("%s.parentColumn '%s' deve ser um campo mapeado e possuir Primary Key ou Unique Key"
+                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+            }
+
+            if (!parentMapping.primaryKey() && !parentMapping.uniqueKey()) {
+                throwBadRequest("%s.parentColumn '%s' não é Primary Key nem Unique Key no nodo pai"
+                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+            }
+
+            // Validação de Tipos
+            ColumnType localType = getColumnType(node, foreignKey.localColumn());
+            ColumnType parentType = getColumnType(parentNode, foreignKey.parentColumn());
+
+            if (localType != parentType) {
+                throwBadRequest("%s.localColumn '%s' (tipo %s) incompatível com parentColumn '%s' (tipo %s)"
+                        .formatted(
+                                foreignKeyPath,
+                                foreignKey.localColumn(),
+                                localType,
+                                foreignKey.parentColumn(),
+                                parentType));
             }
         });
+    }
+
+    private Optional<FieldMapping> findFieldMappingByColumn(JobNode node, String column) {
+        Optional<FieldMapping> mapping = node.fieldMappings().values().stream()
+                .filter(fm -> column.equals(fm.column()))
+                .findFirst();
+
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+
+        return Optional.ofNullable(node.customFields())
+                .map(Map::values)
+                .map(Collection::stream)
+                .orElse(Stream.empty())
+                .filter(cf -> column.equals(cf.column()))
+                .map(cf -> new FieldMapping(cf.column(), cf.type(), cf.nativeType(), cf.primaryKey(), cf.uniqueKey()))
+                .findFirst();
+    }
+
+    private ColumnType getColumnType(JobNode node, String column) {
+        return findFieldMappingByColumn(node, column).map(FieldMapping::type).orElse(ColumnType.TEXT);
     }
 
     private void validateChildrenRecursively(JobNode node, String path, List<String> availableNodeColumns) {
         List<JobNode> children = Optional.ofNullable(node.children()).orElse(List.of());
         IntStream.range(0, children.size()).forEach(index -> {
             String childPath = "%s.children[%d]".formatted(path, index);
-            validateNode(children.get(index), childPath, availableNodeColumns);
+            validateNode(children.get(index), childPath, node);
         });
     }
 

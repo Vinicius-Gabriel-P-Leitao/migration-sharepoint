@@ -42,8 +42,15 @@ class MigrationJobControllerTest {
     private static final Map<String, FieldMapping> FIELD_MAPPINGS =
             Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null, false, false));
 
-    private static final JobNode ROOT_NODE =
-            new JobNode(null, "site-123", "list-456", "test_table", FIELD_MAPPINGS, Map.of(), List.of(), List.of());
+    private static final JobNode ROOT_NODE = new JobNode(
+            "https://tenant.sharepoint.com/sites/Test",
+            "site-123",
+            "list-456",
+            "test_table",
+            FIELD_MAPPINGS,
+            Map.of(),
+            List.of(),
+            List.of());
 
     private JobResponse buildJobResponse(Long id, ScheduleType scheduleType) {
         return new JobResponse(
@@ -69,10 +76,11 @@ class MigrationJobControllerTest {
               "connectionKey": "MYSQL_PROD",
               "scheduleType": "MANUAL",
               "migration": {
+                "sharepointUrl": "https://tenant.sharepoint.com/sites/Test",
                 "siteId": "site-123",
                 "listId": "list-456",
                 "tableName": "test_table",
-                "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "primaryKey": false}},
+                "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
                 "customFields": {},
                 "foreignKeys": [],
                 "children": []
@@ -158,10 +166,11 @@ class MigrationJobControllerTest {
                   "connectionKey": "MYSQL_PROD",
                   "scheduleType": "MANUAL",
                   "migration": {
+                    "sharepointUrl": "https://tenant.sharepoint.com/sites/Test",
                     "siteId": "site-123",
                     "listId": "list-456",
                     "tableName": "test_table",
-                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "primaryKey": false}},
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
                     "customFields": {},
                     "foreignKeys": [],
                     "children": []
@@ -183,10 +192,11 @@ class MigrationJobControllerTest {
                   "connectionKey": "MYSQL_PROD",
                   "scheduleType": "MANUAL",
                   "migration": {
+                    "sharepointUrl": "https://tenant.sharepoint.com/sites/Test",
                     "siteId": "site-123",
                     "listId": "list-456",
                     "tableName": "test_table",
-                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "primaryKey": false}},
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
                     "customFields": {},
                     "foreignKeys": [],
                     "children": []
@@ -208,10 +218,11 @@ class MigrationJobControllerTest {
                   "connectionKey": "MYSQL_PROD",
                   "scheduleType": "MANUAL",
                   "migration": {
+                    "sharepointUrl": "https://tenant.sharepoint.com/sites/Test",
                     "siteId": "site-123",
                     "listId": "list-456",
                     "tableName": "test_table",
-                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "primaryKey": false}},
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
                     "customFields": {},
                     "foreignKeys": [],
                     "children": []
@@ -247,10 +258,11 @@ class MigrationJobControllerTest {
                   "connectionKey": "MYSQL_PROD",
                   "scheduleType": "INTERVAL",
                   "migration": {
+                    "sharepointUrl": "https://tenant.sharepoint.com/sites/Test",
                     "siteId": "site-123",
                     "listId": "list-456",
                     "tableName": "test_table",
-                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "primaryKey": false}},
+                    "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
                     "customFields": {},
                     "foreignKeys": [],
                     "children": []

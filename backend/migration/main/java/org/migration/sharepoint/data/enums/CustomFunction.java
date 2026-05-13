@@ -11,5 +11,6 @@ public enum CustomFunction {
     CURRENT_TIMESTAMP_UTC_3,
     CURRENT_DATE_BR,
     UUID_GEN,
-    STATIC_VALUE
+    STATIC_VALUE,
+    AUTO_INCREMENT
 }

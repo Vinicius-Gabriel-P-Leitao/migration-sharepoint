@@ -11,4 +11,10 @@ import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.CustomFunction;
 
 public record CustomFieldDefinition(
-        String column, ColumnType type, String nativeType, CustomFunction function, String staticValue) {}
+        String column,
+        ColumnType type,
+        String nativeType,
+        CustomFunction function,
+        String staticValue,
+        boolean primaryKey,
+        boolean uniqueKey) {}

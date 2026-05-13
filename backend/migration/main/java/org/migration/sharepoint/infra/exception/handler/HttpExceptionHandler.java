@@ -19,6 +19,7 @@ import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -181,6 +182,17 @@ public class HttpExceptionHandler {
                 "Conflito de integridade de dados: {}",
                 exception.getMostSpecificCause().getMessage());
         return buildErrorResponse("Erro de integridade de dados ou duplicidade", HttpStatus.CONFLICT);
+    }
+
+    /**
+     * Trata erros de desserialização JSON (ex: campo faltando em Record, JSON malformado).
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<@NonNull DataObjectError> handleMessageNotReadable(
+            HttpMessageNotReadableException exception) {
+        log.warn("Erro de leitura da requisição HTTP: {}", exception.getMessage());
+        return buildErrorResponse(
+                "Erro na desserialização do JSON ou corpo da requisição ausente", HttpStatus.BAD_REQUEST);
     }
 
     /**

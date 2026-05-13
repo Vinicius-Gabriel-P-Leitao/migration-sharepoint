@@ -129,7 +129,9 @@ public class WriterConnectionPool implements DisposableBean {
 
             if (username != null || password != null) {
                 String newQuery = remaining.entrySet().stream()
-                        .map(entry -> entry.getValue().isEmpty() ? entry.getKey() : "%s=%s".formatted(entry.getKey(), entry.getValue()))
+                        .map(entry -> entry.getValue().isEmpty()
+                                ? entry.getKey()
+                                : "%s=%s".formatted(entry.getKey(), entry.getValue()))
                         .reduce("%s&%s"::formatted)
                         .orElse("");
 

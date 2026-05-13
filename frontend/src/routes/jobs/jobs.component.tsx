@@ -27,7 +27,7 @@ import {
   ShTooltipContent,
   ShTooltipTrigger,
 } from '@lib/components/sh-tooltip/tooltip.component';
-import { CreateJobDialog } from './components/create-job.component';
+import { CreateJobSheet } from './components/create-job.component';
 import { EditJobSheet } from './components/edit-job.component';
 import type { JobResponse, ScheduleType } from './jobs.type';
 import {
@@ -285,7 +285,7 @@ export const JobsRoute = () => {
       </div>
 
       {/* Create dialog */}
-      <CreateJobDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateJobSheet open={createOpen} onOpenChange={setCreateOpen} />
 
       {/* Edit sheet */}
       <EditJobSheet

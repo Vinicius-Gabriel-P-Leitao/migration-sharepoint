@@ -7,21 +7,13 @@
  */
 package org.migration.sharepoint.infra.writer.adapter;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.Statement;
+import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -103,7 +95,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
     }
 
     @Override
-    public void write(
+    public List<Long> write(
             String connectionKey,
             String targetName,
             List<Map<String, Object>> rows,
@@ -113,36 +105,35 @@ public class MySqlMigrationWriter implements MigrationWriter {
         validateTableName(targetName);
         validateNoNestedPaths(rows);
 
-        try (Connection conn = connectionPool.getConnection(connectionKey)) {
-            String catalog = conn.getCatalog();
+        try (Connection connection = connectionPool.getConnection(connectionKey)) {
+            String catalog = connection.getCatalog();
 
-            // Synchronize o schema: CRIA a tabela se não existir usando a CONFIGURATION do Job
-            createTableIfAbsent(conn, catalog, targetName, columnTypes, foreignKeys, parentTableName);
+            // Sincroniza o schema: CRIA ou ALTERA a tabela
+            syncSchema(connection, catalog, targetName, columnTypes, foreignKeys, parentTableName);
 
             if (rows.isEmpty()) {
                 log.info(
-                        "Job id={}: Nenhum dado para migrar para a tabela '{}'. Estrutura verificada/criada.",
+                        "Job id={}: Nenhum dado para migrar para a tabela '{}'. Estrutura verificada/sincronizada.",
                         targetName);
-                return;
+                return List.of();
             }
 
-            List<String> tableColumns = fetchTableColumns(conn, catalog, targetName);
+            List<String> tableColumns = fetchTableColumns(connection, catalog, targetName);
 
-            // Filtrate as linhas para conterem arenas o que existe no Banco físico
+            // Filtra as linhas para conterem apenas o que existe no Banco físico
             List<Map<String, Object>> validRows = filterValidRows(rows, tableColumns);
 
             if (validRows.isEmpty()) {
                 log.warn("Nenhuma linha possui campos que correspondam às colunas da tabela '{}'", targetName);
-                return;
+                return List.of();
             }
 
-            // Identifica as columns que realignment serão inseridas (interseção dados x Banco)
+            // Identifica as colunas que realmente serão inseridas (interseção dados x Banco)
             List<String> insertColumns = tableColumns.stream()
-                    .filter(col -> validRows.getFirst().containsKey(col))
+                    .filter(columnName -> validRows.getFirst().containsKey(columnName))
                     .collect(Collectors.toList());
 
-            replaceAll(conn, targetName, insertColumns, validRows, columnTypes);
-            log.info("{} linhas migradas para a tabela '{}' (full replace)", validRows.size(), targetName);
+            return replaceAll(connection, targetName, insertColumns, validRows, columnTypes);
 
         } catch (SQLException sqlException) {
             throw new InfrastructureException(
@@ -151,7 +142,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
         }
     }
 
-    private void createTableIfAbsent(
+    private void syncSchema(
             Connection connection,
             String catalog,
             String tableName,
@@ -160,6 +151,16 @@ public class MySqlMigrationWriter implements MigrationWriter {
             String parentTableName)
             throws SQLException {
 
+        if (!tableExists(connection, catalog, tableName)) {
+            createTable(connection, tableName, columnTypes, foreignKeys, parentTableName);
+            return;
+        }
+
+        // Se a tabela já existe, verificamos se precisamos adicionar colunas ou FKs
+        updateTableSchema(connection, catalog, tableName, columnTypes, foreignKeys, parentTableName);
+    }
+
+    private boolean tableExists(Connection connection, String catalog, String tableName) throws SQLException {
         try (PreparedStatement checkStatement = connection.prepareStatement(
                 "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?")) {
             checkStatement.setString(1, catalog);
@@ -167,9 +168,18 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
             try (ResultSet resultSet = checkStatement.executeQuery()) {
                 resultSet.next();
-                if (resultSet.getInt(1) > 0) return;
+                return resultSet.getInt(1) > 0;
             }
         }
+    }
+
+    private void createTable(
+            Connection connection,
+            String tableName,
+            Map<String, FieldMapping> columnTypes,
+            List<ForeignKeyDefinition> foreignKeys,
+            String parentTableName)
+            throws SQLException {
 
         try (Statement statement = connection.createStatement()) {
             String quotedTable = statement.enquoteIdentifier(tableName, true);
@@ -222,7 +232,8 @@ public class MySqlMigrationWriter implements MigrationWriter {
                 for (ForeignKeyDefinition fk : foreignKeys) {
                     columnDefs
                             .append(", CONSTRAINT ")
-                            .append(statement.enquoteIdentifier("fk_%s_%s".formatted(tableName, fk.localColumn()), true))
+                            .append(statement.enquoteIdentifier(
+                                    "fk_%s_%s".formatted(tableName, fk.localColumn()), true))
                             .append(" FOREIGN KEY (")
                             .append(statement.enquoteIdentifier(fk.localColumn(), true))
                             .append(") REFERENCES ")
@@ -236,6 +247,69 @@ public class MySqlMigrationWriter implements MigrationWriter {
             statement.execute("CREATE TABLE %s (%s)".formatted(quotedTable, columnDefs));
             log.info("Tabela '{}' criada com {} colunas baseada na configuração", tableName, columnTypes.size());
         }
+    }
+
+    private void updateTableSchema(
+            Connection connection,
+            String catalog,
+            String tableName,
+            Map<String, FieldMapping> columnTypes,
+            List<ForeignKeyDefinition> foreignKeys,
+            String parentTableName)
+            throws SQLException {
+
+        List<String> existingColumns = fetchTableColumns(connection, catalog, tableName);
+
+        try (Statement statement = connection.createStatement()) {
+            // 1. Adiciona colunas faltantes
+            for (Map.Entry<String, FieldMapping> entry : columnTypes.entrySet()) {
+                if (!existingColumns.contains(entry.getKey())) {
+                    String sqlType = resolveType(entry.getKey(), entry.getValue());
+                    statement.execute("ALTER TABLE %s ADD COLUMN %s %s"
+                            .formatted(
+                                    statement.enquoteIdentifier(tableName, true),
+                                    statement.enquoteIdentifier(entry.getKey(), true),
+                                    sqlType));
+                    log.info("Coluna '{}' adicionada à tabela '{}'", entry.getKey(), tableName);
+                }
+            }
+
+            // 2. Adiciona FKs faltantes
+            if (parentTableName != null && foreignKeys != null) {
+                List<String> existingConstraints = fetchTableConstraints(connection, catalog, tableName);
+                String quotedTable = statement.enquoteIdentifier(tableName, true);
+                String quotedParent = statement.enquoteIdentifier(parentTableName, true);
+
+                for (ForeignKeyDefinition fk : foreignKeys) {
+                    String constraintName = "fk_%s_%s".formatted(tableName, fk.localColumn());
+                    if (!existingConstraints.contains(constraintName)) {
+                        statement.execute("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)"
+                                .formatted(
+                                        quotedTable,
+                                        statement.enquoteIdentifier(constraintName, true),
+                                        statement.enquoteIdentifier(fk.localColumn(), true),
+                                        quotedParent,
+                                        statement.enquoteIdentifier(fk.parentColumn(), true)));
+                        log.info("FK '{}' adicionada à tabela '{}'", constraintName, tableName);
+                    }
+                }
+            }
+        }
+    }
+
+    private List<String> fetchTableConstraints(Connection connection, String catalog, String tableName)
+            throws SQLException {
+        List<String> constraints = new ArrayList<>();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?")) {
+            preparedStatement.setString(1, catalog);
+            preparedStatement.setString(2, tableName);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                constraints.add(resultSet.getString("CONSTRAINT_NAME"));
+            }
+        }
+        return constraints;
     }
 
     private String resolveType(String column, FieldMapping mapping) {
@@ -311,27 +385,34 @@ public class MySqlMigrationWriter implements MigrationWriter {
         }
     }
 
-    private void replaceAll(
-            Connection conn,
+    private List<Long> replaceAll(
+            Connection connection,
             String tableName,
             List<String> columns,
             List<Map<String, Object>> rows,
             Map<String, FieldMapping> columnTypes)
             throws SQLException {
-        conn.setAutoCommit(false);
-        try (Statement stmt = conn.createStatement()) {
+        connection.setAutoCommit(false);
+        try (Statement statement = connection.createStatement()) {
             // Desabilita checagem de FK para permitir o DELETE/REPLACE de uma árvore complexa
-            stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+            statement.execute("SET FOREIGN_KEY_CHECKS = 0");
 
-            stmt.execute("DELETE FROM %s".formatted(stmt.enquoteIdentifier(tableName, true)));
+            try {
+                // TRUNCATE reseta o AUTO_INCREMENT e é mais performático para tabelas grandes
+                statement.execute("TRUNCATE TABLE %s".formatted(statement.enquoteIdentifier(tableName, true)));
 
-            batchInsert(conn, tableName, columns, rows, columnTypes);
+                // Deduplicação em memória para evitar gaps no AUTO_INCREMENT causados pelo INSERT IGNORE
+                List<Map<String, Object>> deduplicatedRows = deduplicateRows(rows, columnTypes);
 
-            stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
-            conn.commit();
+                List<Long> keys = batchInsert(connection, tableName, columns, deduplicatedRows, columnTypes);
+                connection.commit();
+                return keys;
+            } finally {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
         } catch (SQLException sqlException) {
             try {
-                conn.rollback();
+                connection.rollback();
             } catch (SQLException rollbackException) {
                 log.error("Falha ao executar rollback na tabela '{}': {}", tableName, rollbackException.getMessage());
             }
@@ -339,58 +420,122 @@ public class MySqlMigrationWriter implements MigrationWriter {
         }
     }
 
-    private void batchInsert(
+    private List<Map<String, Object>> deduplicateRows(
+            List<Map<String, Object>> rows, Map<String, FieldMapping> columnTypes) {
+        List<String> uniqueColumns = columnTypes.values().stream()
+                .filter(mapping -> mapping.primaryKey() || mapping.uniqueKey())
+                .map(FieldMapping::column)
+                .toList();
+
+        if (uniqueColumns.isEmpty()) return rows;
+
+        Set<String> seen = new HashSet<>();
+        List<Map<String, Object>> deduplicated = new ArrayList<>();
+
+        for (Map<String, Object> row : rows) {
+            // Gera uma chave baseada em todos os campos únicos combinados
+            String key = uniqueColumns.stream()
+                    .map(columnName -> String.valueOf(row.get(columnName)))
+                    .collect(Collectors.joining("|"));
+
+            if (seen.add(key)) {
+                deduplicated.add(row);
+            }
+        }
+
+        if (rows.size() != deduplicated.size()) {
+            log.info(
+                    "Deduplicação em memória: {} duplicados removidos para manter sequência de IDs.",
+                    rows.size() - deduplicated.size());
+        }
+
+        return deduplicated;
+    }
+
+    private List<Long> batchInsert(
             Connection connection,
             String tableName,
             List<String> columns,
             List<Map<String, Object>> rows,
             Map<String, FieldMapping> columnTypes)
             throws SQLException {
-        try (Statement helperStatement = connection.createStatement()) {
-            String quotedTable = helperStatement.enquoteIdentifier(tableName, true);
 
-            StringBuilder columnListBuilder = new StringBuilder();
-            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-                if (columnIndex > 0) columnListBuilder.append(", ");
-                columnListBuilder.append(helperStatement.enquoteIdentifier(columns.get(columnIndex), true));
+        String sql = buildInsertSql(connection, tableName, columns);
+        List<Long> generatedKeys = new ArrayList<>();
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            int currentBatchSize = 0;
+
+            for (Map<String, Object> row : rows) {
+                setStatementValues(preparedStatement, columns, row, columnTypes);
+                preparedStatement.addBatch();
+                currentBatchSize++;
+
+                if (currentBatchSize >= batchSize) {
+                    executeAndCollectKeys(preparedStatement, generatedKeys);
+                    currentBatchSize = 0;
+                }
             }
-            String columnList = columnListBuilder.toString();
+
+            if (currentBatchSize > 0) {
+                executeAndCollectKeys(preparedStatement, generatedKeys);
+            }
+        } catch (SQLIntegrityConstraintViolationException exception) {
+            handleConstraintViolation(tableName, exception);
+        }
+
+        return generatedKeys;
+    }
+
+    private String buildInsertSql(Connection connection, String tableName, List<String> columns) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            String quotedTable = statement.enquoteIdentifier(tableName, true);
+            String columnList = columns.stream()
+                    .map(columnName -> {
+                        try {
+                            return statement.enquoteIdentifier(columnName, true);
+                        } catch (SQLException exception) {
+                            return columnName;
+                        }
+                    })
+                    .collect(Collectors.joining(", "));
 
             String placeholders = ",?".repeat(columns.size()).substring(1);
-            String sql = "INSERT INTO %s (%s) VALUES (%s)".formatted(quotedTable, columnList, placeholders);
+            return "INSERT IGNORE INTO %s (%s) VALUES (%s)".formatted(quotedTable, columnList, placeholders);
+        }
+    }
 
-            try (PreparedStatement insertStatement = connection.prepareStatement(sql)) {
-                int batchCount = 0;
-                for (Map<String, Object> row : rows) {
-                    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-                        String columnName = columns.get(columnIndex);
-                        Object value = convertValue(row.get(columnName), columnTypes.get(columnName), columnName);
-                        insertStatement.setObject(columnIndex + 1, value);
-                    }
+    private void setStatementValues(
+            PreparedStatement preparedStatement,
+            List<String> columns,
+            Map<String, Object> row,
+            Map<String, FieldMapping> columnTypes)
+            throws SQLException {
+        for (int index = 0; index < columns.size(); index++) {
+            String columnName = columns.get(index);
+            Object value = convertValue(row.get(columnName), columnTypes.get(columnName), columnName);
+            preparedStatement.setObject(index + 1, value);
+        }
+    }
 
-                    insertStatement.addBatch();
-                    batchCount++;
-
-                    if (batchCount % batchSize == 0) {
-                        insertStatement.executeBatch();
-                        insertStatement.clearBatch();
-                    }
-                }
-
-                if (batchCount % batchSize != 0) {
-                    insertStatement.executeBatch();
-                }
-
-            } catch (SQLIntegrityConstraintViolationException constraintViolation) {
-                if (constraintViolation.getErrorCode() == MYSQL_ERR_NULL_VIOLATION) {
-                    throw new ConflictException(
-                            ErrorCode.MIGRATION_NULL_VIOLATION,
-                            "Campo obrigatório recebeu valor nulo na tabela '%s'".formatted(tableName));
-                }
-                throw new ConflictException(
-                        ErrorCode.MIGRATION_CONFLICT, "Conflito de integridade na tabela '%s'".formatted(tableName));
+    private void executeAndCollectKeys(PreparedStatement preparedStatement, List<Long> keys) throws SQLException {
+        preparedStatement.executeBatch();
+        try (ResultSet resultSet = preparedStatement.getGeneratedKeys()) {
+            while (resultSet.next()) {
+                keys.add(resultSet.getLong(1));
             }
         }
+        preparedStatement.clearBatch();
+    }
+
+    private void handleConstraintViolation(String tableName, SQLIntegrityConstraintViolationException exception) {
+        if (exception.getErrorCode() == MYSQL_ERR_NULL_VIOLATION) {
+            throw new ConflictException(
+                    ErrorCode.MIGRATION_NULL_VIOLATION, "Campo obrigatório nulo na tabela '%s'".formatted(tableName));
+        }
+        throw new ConflictException(
+                ErrorCode.MIGRATION_CONFLICT,
+                "Conflito de integridade na tabela '%s': %s".formatted(tableName, exception.getMessage()));
     }
 
     private Object convertValue(Object value, FieldMapping mapping, String column) {
@@ -493,15 +638,16 @@ public class MySqlMigrationWriter implements MigrationWriter {
                 .collect(Collectors.toList());
     }
 
-    private List<String> fetchTableColumns(Connection conn, String catalog, String tableName) throws SQLException {
+    private List<String> fetchTableColumns(Connection connection, String catalog, String tableName)
+            throws SQLException {
         List<String> columns = new ArrayList<>();
-        try (PreparedStatement stmt = conn.prepareStatement(
+        try (PreparedStatement preparedStatement = connection.prepareStatement(
                 "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION")) {
-            stmt.setString(1, catalog);
-            stmt.setString(2, tableName);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                columns.add(rs.getString("COLUMN_NAME"));
+            preparedStatement.setString(1, catalog);
+            preparedStatement.setString(2, tableName);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                columns.add(resultSet.getString("COLUMN_NAME"));
             }
         }
         return columns;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useResolveSharePoint } from '@lib/hooks/sharepoint.hook';
 import { useAdapterTypes } from '@lib/hooks/adapters.hook';
+import type { AdapterTypesResponse } from '@lib/services/adapters.service';
 import type {
   JobNode,
   FieldMapping,
@@ -33,13 +34,12 @@ import {
   ShTableCell,
 } from '@lib/components/sh-table/table.component';
 import {
-  ShDialog,
-  ShDialogContent,
-  ShDialogHeader,
-  ShDialogTitle,
-  ShDialogFooter,
-  ShDialogTrigger,
-} from '@lib/components/sh-dialog/dialog.component';
+  ShSheet,
+  ShSheetContent,
+  ShSheetHeader,
+  ShSheetTitle,
+  ShSheetFooter,
+} from '@lib/components/sh-sheet/sheet.component';
 import {
   Loader2,
   Plus,
@@ -59,6 +59,7 @@ const CUSTOM_FUNCTIONS: { label: string; value: CustomFunction }[] = [
   { label: 'Data/Hora Atual (UTC-3)', value: 'CURRENT_TIMESTAMP_UTC_3' },
   { label: 'Data Atual (BR)', value: 'CURRENT_DATE_BR' },
   { label: 'Gerar UUID', value: 'UUID_GEN' },
+  { label: 'ID Incremental (Auto)', value: 'AUTO_INCREMENT' },
   { label: 'Valor Estático (Texto)', value: 'STATIC_VALUE' },
 ];
 
@@ -76,13 +77,20 @@ const formatNativeType = (base: string, params: string[]) => {
   return `${base}(${filteredParams.join(',')})`;
 };
 
+interface ParentColumnOption {
+  column: string;
+  isKey: boolean;
+  type: CanonicalType;
+  nativeType?: string;
+}
+
 interface MigrationNodeProps {
   node: JobNode;
   onChange: (newNode: JobNode) => void;
   onRemove?: () => void;
   targetDb: TargetDb;
   isRoot?: boolean;
-  parentColumns?: string[];
+  parentColumns?: ParentColumnOption[];
 }
 
 export const MigrationNode = ({
@@ -106,12 +114,14 @@ export const MigrationNode = ({
     ...Object.values(node.customFields).map((f) => f.column),
   ].filter(Boolean);
 
+  const parentKeyColumns = parentColumns.filter((c) => c.isKey).map((c) => c.column);
+
   // Sync internal state when node.sharepointUrl changes from outside (e.g. during initial edit load)
   useEffect(() => {
     if (node.sharepointUrl && sharepointUrl === '') {
-      setSharepointUrl(node.sharepointUrl);
+      setTimeout(() => setSharepointUrl(node.sharepointUrl || ''), 0);
     }
-  }, [node.sharepointUrl]);
+  }, [node.sharepointUrl, sharepointUrl]);
 
   // Initialize available columns from existing mappings if any
   useEffect(() => {
@@ -154,7 +164,7 @@ export const MigrationNode = ({
   const handleUpdateMapping = (spColumn: string, updates: Partial<FieldMapping>) => {
     const newMappings = { ...node.fieldMappings };
 
-    let finalUpdates = { ...updates };
+    const finalUpdates = { ...updates };
 
     if (updates.primaryKey) {
       Object.keys(newMappings).forEach((key) => {
@@ -240,8 +250,55 @@ export const MigrationNode = ({
   };
 
   const handleRemoveChild = (index: number) => {
-    const newChildren = node.children.filter((_, i) => i !== index);
+    const newChildren = node.children.filter((_, childIndex) => childIndex !== index);
     onChange({ ...node, children: newChildren });
+  };
+
+  const handleAutoCreateFKField = (index: number, localColumn: string, parentColumn: string) => {
+    if (!localColumn || !parentColumn) {
+      toast.error('Selecione a coluna no pai primeiro');
+      return;
+    }
+    const parentCol = parentColumns.find((c) => c.column === parentColumn);
+    if (!parentCol) return;
+
+    const exists = currentColumns.includes(localColumn);
+    if (exists) return;
+
+    const cleanNativeType = (nativeType: string) => {
+      if (!nativeType) return '';
+      // Remove AUTO_INCREMENT, PRIMARY KEY, UNIQUE, NOT NULL, etc.
+      // Keeps only the base type and optional precision like VARCHAR(255) or DECIMAL(10,2)
+      return nativeType.split(/\s+/).filter(word => 
+        !['AUTO_INCREMENT', 'PRIMARY', 'KEY', 'UNIQUE', 'NOT', 'NULL'].includes(word.toUpperCase())
+      ).join(' ');
+    };
+
+    const newField: CustomFieldDefinition = {
+      column: localColumn,
+      type: parentCol.type,
+      nativeType: cleanNativeType(parentCol.nativeType || ''),
+      function: 'STATIC_VALUE',
+      staticValue: '',
+      primaryKey: false,
+      uniqueKey: false,
+    };
+
+    // 1. Create the virtual field
+    const newCustomFields = { ...node.customFields, [newField.column]: newField };
+    
+    // 2. Update the localColumn in the current foreign key list
+    const newFks = [...(node.foreignKeys || [])];
+    newFks[index] = { ...newFks[index], localColumn };
+
+    // 3. Batch update the node
+    onChange({ 
+      ...node, 
+      customFields: newCustomFields,
+      foreignKeys: newFks
+    });
+    
+    toast.success(`Campo virtual '${localColumn}' criado para a FK`);
   };
 
   return (
@@ -278,19 +335,22 @@ export const MigrationNode = ({
               </ShButton>
             )}
 
-            <ShDialog open={customFieldOpen} onOpenChange={setCustomFieldOpen}>
-              <ShDialogTrigger asChild>
-                <ShButton
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-dashed border-primary/50 text-primary"
-                >
-                  <Cpu className="w-3.5 h-3.5 mr-1" />
-                  Campo Virtual
-                </ShButton>
-              </ShDialogTrigger>
-              <CustomFieldForm onAdd={handleAddCustomField} adapterTypes={adapterTypes} />
-            </ShDialog>
+            <ShButton
+              variant="outline"
+              size="sm"
+              className="h-8 border-dashed border-primary/50 text-primary-foreground"
+              onClick={() => setCustomFieldOpen(true)}
+            >
+              <Cpu className="w-3.5 h-3.5 mr-1" />
+              Campo Virtual
+            </ShButton>
+
+            <CustomFieldForm
+              onAdd={handleAddCustomField}
+              adapterTypes={adapterTypes}
+              open={customFieldOpen}
+              onOpenChange={setCustomFieldOpen}
+            />
 
             <ShButton variant="outline" size="sm" onClick={handleAddChild} className="h-8">
               <Plus className="w-3.5 h-3.5 mr-1" />
@@ -361,7 +421,7 @@ export const MigrationNode = ({
 
             {(availableColumns.length > 0 || Object.keys(node.customFields || {}).length > 0) && (
               <div className="rounded-md border overflow-hidden">
-                <ShTable>
+                <ShTable className="table-fixed w-full">
                   <ShTableHeader className="bg-muted/50">
                     <ShTableRow>
                       <ShTableHead className="w-10 h-8 px-3">
@@ -380,6 +440,7 @@ export const MigrationNode = ({
                                     type: 'TEXT',
                                     nativeType: '',
                                     primaryKey: false,
+                                    uniqueKey: false,
                                   };
                                 }
                                 return accumulator;
@@ -390,21 +451,21 @@ export const MigrationNode = ({
                           }}
                         />
                       </ShTableHead>
-                      <ShTableHead className="w-10 h-8 px-3 text-center">PK</ShTableHead>
-                      <ShTableHead className="w-10 h-8 px-3 text-center">UQ</ShTableHead>
-                      <ShTableHead className="h-8 text-[10px] uppercase font-bold px-3">
+                      <ShTableHead className="w-12 h-10 px-3 text-center text-xs">PK</ShTableHead>
+                      <ShTableHead className="w-12 h-10 px-3 text-center text-xs">UQ</ShTableHead>
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[22%]">
                         Campo Fonte
                       </ShTableHead>
-                      <ShTableHead className="h-8 text-[10px] uppercase font-bold px-3">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[22%]">
                         Coluna Destino
                       </ShTableHead>
-                      <ShTableHead className="h-8 text-[10px] uppercase font-bold px-3">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[180px]">
                         Tipo Canônico
                       </ShTableHead>
-                      <ShTableHead className="h-8 text-[10px] uppercase font-bold px-3">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[190px]">
                         Tipo Nativo
                       </ShTableHead>
-                      <ShTableHead className="w-10 h-8 px-3"></ShTableHead>
+                      <ShTableHead className="w-12 h-10 px-3"></ShTableHead>
                     </ShTableRow>
                   </ShTableHeader>
                   <ShTableBody>
@@ -421,7 +482,7 @@ export const MigrationNode = ({
 
                       return (
                         <ShTableRow key={spColumn} className={cn(!included && 'opacity-40')}>
-                          <ShTableCell className="py-1.5 px-3 text-center">
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <input
                               type="checkbox"
                               checked={included}
@@ -430,7 +491,7 @@ export const MigrationNode = ({
                               }
                             />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3 text-center">
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <input
                               type="checkbox"
                               checked={mapping?.primaryKey || false}
@@ -438,10 +499,10 @@ export const MigrationNode = ({
                               onChange={(event) =>
                                 handleUpdateMapping(spColumn, { primaryKey: event.target.checked })
                               }
-                              className="accent-primary"
+                              className="accent-primary h-4 w-4"
                             />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3 text-center">
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <input
                               type="checkbox"
                               checked={mapping?.uniqueKey || false}
@@ -449,18 +510,18 @@ export const MigrationNode = ({
                               onChange={(event) =>
                                 handleUpdateMapping(spColumn, { uniqueKey: event.target.checked })
                               }
-                              className="accent-primary"
+                              className="accent-primary h-4 w-4"
                             />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
-                            <div className="font-mono text-[12px] leading-none flex items-center gap-1.5">
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
+                            <div className="font-mono text-[13px] font-medium leading-none flex items-center gap-1.5 truncate" title={spColumn}>
                               {spColumn}
                             </div>
 
                             {included && (
-                              <div className="text-[9px] text-muted-foreground mt-1 flex items-center gap-1">
+                              <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1 truncate">
                                 <span>→</span>
-                                <span className="font-bold text-primary">
+                                <span className="font-bold text-foreground truncate uppercase">
                                   {mapping.nativeType ||
                                     adapterTypes?.canonical[mapping.type] ||
                                     '...'}
@@ -469,7 +530,7 @@ export const MigrationNode = ({
                             )}
                           </ShTableCell>
 
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
                             <ShInput
                               value={mapping?.column || ''}
                               onChange={(event) =>
@@ -478,11 +539,11 @@ export const MigrationNode = ({
                                 })
                               }
                               disabled={!included}
-                              className="h-9 py-0 px-2"
+                              className="h-9 py-0 px-2 text-[13px]"
                             />
                           </ShTableCell>
 
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
                             <ShSelect
                               value={mapping?.type || 'TEXT'}
                               onValueChange={(value) =>
@@ -491,33 +552,37 @@ export const MigrationNode = ({
                                 })
                               }
                               disabled={!included}
-                              size="sm"
+                              size="default"
+                              className="w-full h-9"
                             >
                               {Object.keys(adapterTypes?.canonical || {}).map((typeName) => (
                                 <ShSelectItem
                                   key={typeName}
                                   value={typeName}
-                                  className="text-[10px]"
+                                  className="text-[12px]"
                                 >
                                   {typeName}
                                 </ShSelectItem>
                               ))}
                             </ShSelect>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
                             <ShPopover>
                               <ShPopoverTrigger asChild>
                                 <ShButton
                                   variant="outline"
-                                  size="sm"
+                                  size="default"
                                   disabled={!included}
                                   className={cn(
-                                    'h-7 w-full justify-start font-mono text-[10px] px-2',
-                                    !mapping?.nativeType && 'text-muted-foreground italic',
+                                    'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2',
+                                    !mapping?.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
+                                    mapping?.nativeType && 'font-bold text-foreground border-primary/30',
                                   )}
                                 >
-                                  <Settings2 className="w-3 h-3 mr-1.5 opacity-50" />
-                                  {mapping?.nativeType || '(canônico)'}
+                                  <Settings2 className="w-5 h-5 mr-2 opacity-70 shrink-0" />
+                                  <span className="truncate">
+                                    {mapping?.nativeType || '(Canônico)'}
+                                  </span>
                                 </ShButton>
                               </ShPopoverTrigger>
                               <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
@@ -625,23 +690,44 @@ export const MigrationNode = ({
                           key={customDef.column}
                           className="bg-primary/[0.03] border-l-2 border-l-primary"
                         >
-                          <ShTableCell className="py-1.5 px-3 text-center">
-                            <Cpu className="w-3.5 h-3.5 text-primary opacity-50 mx-auto" />
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
+                            <Cpu className="w-4 h-4 text-primary opacity-60 mx-auto" />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3 text-center">
-                            {/* Virtual fields are usually not PKs, but we could add if needed */}
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
+                            <input
+                              type="checkbox"
+                              checked={customDef.primaryKey || false}
+                              onChange={(event) =>
+                                handleAddCustomField({
+                                  ...customDef,
+                                  primaryKey: event.target.checked,
+                                  uniqueKey: event.target.checked || customDef.uniqueKey,
+                                })
+                              }
+                              className="accent-primary h-4 w-4"
+                            />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3 text-center">
-                            {/* Virtual fields are usually not Unique Keys */}
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
+                            <input
+                              type="checkbox"
+                              checked={customDef.uniqueKey || false}
+                              onChange={(event) =>
+                                handleAddCustomField({
+                                  ...customDef,
+                                  uniqueKey: event.target.checked,
+                                })
+                              }
+                              className="accent-primary h-4 w-4"
+                            />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
-                            <div className="flex flex-col">
-                              <div className="text-[11px] font-bold text-primary flex items-center gap-1">
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
+                            <div className="flex flex-col truncate">
+                              <div className="text-[12px] font-bold text-foreground flex items-center gap-1 truncate" title={customFunction?.label}>
                                 {customFunction?.label || customDef.function}
                               </div>
-                              <div className="text-[9px] text-muted-foreground flex items-center gap-1">
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-1 truncate mt-1">
                                 <span>→</span>
-                                <span className="font-bold">
+                                <span className="font-bold truncate uppercase text-foreground">
                                   {customDef.nativeType ||
                                     adapterTypes?.canonical[customDef.type] ||
                                     '...'}
@@ -649,44 +735,51 @@ export const MigrationNode = ({
                               </div>
                             </div>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3">
                             <ShInput
                               value={customDef.column}
                               onChange={(event) =>
                                 handleAddCustomField({ ...customDef, column: event.target.value })
                               }
-                              className="h-9 py-0 px-2 font-bold text-primary"
+                              className="h-9 py-0 px-2 font-bold text-foreground text-[13px]"
                             />
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3">
                             <ShSelect
                               value={customDef.type}
                               onValueChange={(value) =>
                                 handleAddCustomField({ ...customDef, type: value as CanonicalType })
                               }
-                              size="sm"
+                              size="default"
+                              className="w-full h-9"
                             >
                               {Object.keys(adapterTypes?.canonical || {}).map((typeName) => (
                                 <ShSelectItem
                                   key={typeName}
                                   value={typeName}
-                                  className="text-[10px]"
+                                  className="text-[12px]"
                                 >
                                   {typeName}
                                 </ShSelectItem>
                               ))}
                             </ShSelect>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3">
+                          <ShTableCell className="py-2.5 px-3">
                             <ShPopover>
                               <ShPopoverTrigger asChild>
                                 <ShButton
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 w-full justify-start font-mono text-[10px] px-2 border-primary/30"
+                                  size="default"
+                                  className={cn(
+                                    'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2 border-primary/20',
+                                    !customDef.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
+                                    customDef.nativeType && 'font-bold text-foreground',
+                                  )}
                                 >
-                                  <Settings2 className="w-3 h-3 mr-1.5 text-primary opacity-50" />
-                                  {customDef.nativeType || '(canônico)'}
+                                  <Settings2 className="w-5 h-5 mr-2 text-primary opacity-50 shrink-0" />
+                                  <span className="truncate">
+                                    {customDef.nativeType || '(Canônico)'}
+                                  </span>
                                 </ShButton>
                               </ShPopoverTrigger>
                               <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
@@ -760,14 +853,14 @@ export const MigrationNode = ({
                               </ShPopoverContent>
                             </ShPopover>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3 text-center">
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <ShButton
                               variant="ghost"
                               size="icon-sm"
                               onClick={() => handleRemoveCustomField(customDef.column)}
-                              className="text-destructive h-7 w-7"
+                              className="text-destructive h-8 w-8"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </ShButton>
                           </ShTableCell>
                         </ShTableRow>
@@ -800,30 +893,86 @@ export const MigrationNode = ({
                 {node.foreignKeys && node.foreignKeys.length > 0 ? (
                   <div className="space-y-2">
                     {node.foreignKeys.map((fk, index) => (
-                      <div key={index} className="flex items-center gap-3 bg-background p-2 rounded border border-primary/10">
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 bg-background p-2 rounded border border-primary/10"
+                      >
                         <div className="flex-1 space-y-1">
-                          <ShLabel className="text-[9px] text-muted-foreground uppercase">Coluna Local</ShLabel>
-                          <ShSelect
-                            value={fk.localColumn}
-                            onValueChange={(value) => handleUpdateForeignKey(index, { localColumn: value })}
-                          >
-                            {currentColumns.map((col) => (
-                              <ShSelectItem key={col} value={col}>
-                                {col}
-                              </ShSelectItem>
-                            ))}
-                          </ShSelect>
+                          <ShLabel className="text-[9px] text-muted-foreground uppercase flex items-center justify-between">
+                            Coluna Local
+                            {!currentColumns.includes(fk.localColumn) && fk.localColumn && (
+                              <span className="text-[8px] text-destructive font-bold animate-pulse">
+                                MISSING FIELD
+                              </span>
+                            )}
+                          </ShLabel>
+                          <div className="flex gap-1">
+                            <ShInput
+                              value={fk.localColumn}
+                              onChange={(e) => handleUpdateForeignKey(index, { localColumn: e.target.value })}
+                              onBlur={(e) => {
+                                const val = e.target.value;
+                                if (val && !currentColumns.includes(val) && fk.parentColumn) {
+                                  handleAutoCreateFKField(index, val, fk.parentColumn);
+                                }
+                              }}
+                              placeholder="ex: fk_id_pai"
+                              className={cn(
+                                "h-9 py-0 px-2 text-[13px] font-bold flex-1",
+                                !currentColumns.includes(fk.localColumn) && fk.localColumn && "border-destructive/50 bg-destructive/5"
+                              )}
+                            />
+                            <ShPopover>
+                              <ShPopoverTrigger asChild>
+                                <ShButton variant="outline" size="icon-sm" className="h-9 w-9 border-primary/20 shrink-0">
+                                  <ChevronDown className="w-4 h-4 opacity-50" />
+                                </ShButton>
+                              </ShPopoverTrigger>
+                              <ShPopoverContent className="w-64 p-0" align="end">
+                                <div className="max-h-60 overflow-y-auto p-1">
+                                  {fk.localColumn && !currentColumns.includes(fk.localColumn) && (
+                                    <div
+                                      className="px-2 py-2 text-xs text-primary font-bold hover:bg-primary/10 cursor-pointer rounded-sm border-b mb-1 flex items-center gap-2"
+                                      onClick={() => handleAutoCreateFKField(index, fk.localColumn, fk.parentColumn)}
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      Criar virtual: {fk.localColumn}
+                                    </div>
+                                  )}
+                                  {currentColumns.length > 0 ? (
+                                    currentColumns.map((col) => (
+                                      <div
+                                        key={col}
+                                        className="px-2 py-1.5 text-xs hover:bg-primary/10 cursor-pointer rounded-sm"
+                                        onClick={() => handleUpdateForeignKey(index, { localColumn: col })}
+                                      >
+                                        {col}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="p-2 text-[10px] text-muted-foreground italic">
+                                      Nenhuma coluna disponível
+                                    </div>
+                                  )}
+                                </div>
+                              </ShPopoverContent>
+                            </ShPopover>
+                          </div>
                         </div>
                         <div className="flex flex-col items-center justify-center pt-4">
                           <ChevronRight className="w-4 h-4 text-primary opacity-50" />
                         </div>
                         <div className="flex-1 space-y-1">
-                          <ShLabel className="text-[9px] text-muted-foreground uppercase">Coluna no Pai</ShLabel>
+                          <ShLabel className="text-[9px] text-muted-foreground uppercase">
+                            Coluna no Pai
+                          </ShLabel>
                           <ShSelect
                             value={fk.parentColumn}
-                            onValueChange={(value) => handleUpdateForeignKey(index, { parentColumn: value })}
+                            onValueChange={(value) =>
+                              handleUpdateForeignKey(index, { parentColumn: value })
+                            }
                           >
-                            {parentColumns.map((col) => (
+                            {parentKeyColumns.map((col) => (
                               <ShSelectItem key={col} value={col}>
                                 {col}
                               </ShSelectItem>
@@ -862,7 +1011,20 @@ export const MigrationNode = ({
             targetDb={targetDb}
             onChange={(updated) => handleUpdateChild(index, updated)}
             onRemove={() => handleRemoveChild(index)}
-            parentColumns={currentColumns}
+            parentColumns={[
+              ...Object.values(node.fieldMappings).map((m) => ({
+                column: m.column,
+                isKey: m.primaryKey || m.uniqueKey,
+                type: m.type,
+                nativeType: m.nativeType,
+              })),
+              ...Object.values(node.customFields).map((f) => ({
+                column: f.column,
+                isKey: f.primaryKey || f.uniqueKey,
+                type: f.type,
+                nativeType: f.nativeType,
+              })),
+            ]}
           />
         ))}
     </div>
@@ -873,6 +1035,7 @@ const FUNCTION_AUTO_TYPE: Record<CustomFunction, CanonicalType> = {
   CURRENT_TIMESTAMP_UTC_3: 'DATETIME',
   CURRENT_DATE_BR: 'DATE',
   UUID_GEN: 'TEXT',
+  AUTO_INCREMENT: 'NUMBER',
   STATIC_VALUE: 'TEXT',
 };
 
@@ -880,15 +1043,20 @@ const FUNCTION_ALLOWED_TYPES: Record<CustomFunction, string[]> = {
   CURRENT_TIMESTAMP_UTC_3: ['DATETIME', 'TEXT', 'DATE'],
   CURRENT_DATE_BR: ['DATE', 'TEXT'],
   UUID_GEN: ['TEXT'],
+  AUTO_INCREMENT: ['NUMBER'],
   STATIC_VALUE: ['TEXT', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME'],
 };
 
 const CustomFieldForm = ({
   onAdd,
   adapterTypes,
+  open,
+  onOpenChange,
 }: {
   onAdd: (definition: CustomFieldDefinition) => void;
-  adapterTypes?: any;
+  adapterTypes?: AdapterTypesResponse;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) => {
   const [columnName, setColumnName] = useState('');
   const [staticValue, setStaticValue] = useState('');
@@ -897,79 +1065,84 @@ const CustomFieldForm = ({
   const [canonicalType, setCanonicalType] = useState<CanonicalType>('DATETIME');
 
   return (
-    <ShDialogContent size="sm">
-      <ShDialogHeader>
-        <ShDialogTitle>Novo Campo Virtual</ShDialogTitle>
-      </ShDialogHeader>
-      <div className="space-y-4 py-4">
-        <div className="space-y-1.5">
-          <ShLabel>Função Geradora</ShLabel>
-          <ShSelect
-            value={selectedFunction}
-            onValueChange={(value) => {
-              const func = value as CustomFunction;
-              setSelectedFunction(func);
-              setCanonicalType(FUNCTION_AUTO_TYPE[func]);
-            }}
-          >
-            {CUSTOM_FUNCTIONS.map((customFunc) => (
-              <ShSelectItem key={customFunc.value} value={customFunc.value}>
-                {customFunc.label}
-              </ShSelectItem>
-            ))}
-          </ShSelect>
-        </div>
-
-        {selectedFunction === 'STATIC_VALUE' && (
+    <ShSheet open={open} onOpenChange={onOpenChange}>
+      <ShSheetContent side="right" className="sm:max-w-md w-full flex flex-col p-0">
+        <ShSheetHeader className="px-6 py-4 border-b">
+          <ShSheetTitle>Novo Campo Virtual</ShSheetTitle>
+        </ShSheetHeader>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="space-y-1.5">
-            <ShLabel>Valor Estático</ShLabel>
-            <ShInput
-              placeholder="Digite o valor..."
-              value={staticValue}
-              onChange={(event) => setStaticValue(event.target.value)}
-            />
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <ShLabel>Nome da Coluna no Banco</ShLabel>
-          <ShInput
-            placeholder="ex: data_sincronizacao"
-            value={columnName}
-            onChange={(event) => setColumnName(event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <ShLabel>Tipo Canônico</ShLabel>
-          <ShSelect
-            value={canonicalType}
-            onValueChange={(value) => setCanonicalType(value as CanonicalType)}
-          >
-            {Object.keys(adapterTypes?.canonical || {})
-              .filter((typeName) => FUNCTION_ALLOWED_TYPES[selectedFunction].includes(typeName))
-              .map((typeName) => (
-                <ShSelectItem key={typeName} value={typeName}>
-                  {typeName}
+            <ShLabel>Função Geradora</ShLabel>
+            <ShSelect
+              value={selectedFunction}
+              onValueChange={(value) => {
+                const func = value as CustomFunction;
+                setSelectedFunction(func);
+                setCanonicalType(FUNCTION_AUTO_TYPE[func]);
+              }}
+            >
+              {CUSTOM_FUNCTIONS.map((customFunc) => (
+                <ShSelectItem key={customFunc.value} value={customFunc.value}>
+                  {customFunc.label}
                 </ShSelectItem>
               ))}
-          </ShSelect>
+            </ShSelect>
+          </div>
+
+          {selectedFunction === 'STATIC_VALUE' && (
+            <div className="space-y-1.5">
+              <ShLabel>Valor Estático</ShLabel>
+              <ShInput
+                placeholder="Digite o valor..."
+                value={staticValue}
+                onChange={(event) => setStaticValue(event.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <ShLabel>Nome da Coluna no Banco</ShLabel>
+            <ShInput
+              placeholder="ex: data_sincronizacao"
+              value={columnName}
+              onChange={(event) => setColumnName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <ShLabel>Tipo Canônico</ShLabel>
+            <ShSelect
+              value={canonicalType}
+              onValueChange={(value) => setCanonicalType(value as CanonicalType)}
+            >
+              {Object.keys(adapterTypes?.canonical || {})
+                .filter((typeName) => FUNCTION_ALLOWED_TYPES[selectedFunction].includes(typeName))
+                .map((typeName) => (
+                  <ShSelectItem key={typeName} value={typeName}>
+                    {typeName}
+                  </ShSelectItem>
+                ))}
+            </ShSelect>
+          </div>
         </div>
-      </div>
-      <ShDialogFooter>
-        <ShButton
-          onClick={() =>
-            onAdd({
-              column: columnName || 'nova_coluna',
-              type: canonicalType,
-              nativeType: '',
-              function: selectedFunction,
-              staticValue: selectedFunction === 'STATIC_VALUE' ? staticValue : undefined,
-            })
-          }
-        >
-          Adicionar Campo
-        </ShButton>
-      </ShDialogFooter>
-    </ShDialogContent>
+        <ShSheetFooter className="p-6 border-t bg-muted/20">
+          <ShButton
+            onClick={() =>
+              onAdd({
+                column: columnName || 'id',
+                type: canonicalType,
+                nativeType: selectedFunction === 'AUTO_INCREMENT' ? 'INT NOT NULL AUTO_INCREMENT' : '',
+                function: selectedFunction,
+                staticValue: selectedFunction === 'STATIC_VALUE' ? staticValue : undefined,
+                primaryKey: selectedFunction === 'AUTO_INCREMENT',
+                uniqueKey: selectedFunction === 'AUTO_INCREMENT',
+              })
+            }
+            className="w-full"
+          >
+            Adicionar Campo
+          </ShButton>
+        </ShSheetFooter>
+      </ShSheetContent>
+    </ShSheet>
   );
 };

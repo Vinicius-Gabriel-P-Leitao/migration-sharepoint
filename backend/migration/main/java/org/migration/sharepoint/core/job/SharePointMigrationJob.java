@@ -15,8 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
+import org.migration.sharepoint.data.enums.CustomFunction;
 import org.migration.sharepoint.data.enums.JobStatus;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
@@ -77,8 +77,16 @@ public class SharePointMigrationJob implements Job {
                 .build());
 
         try {
+            RelationalContext relationalContext = new RelationalContext();
             JobNode rootNode = job.getMigration();
-            int total = syncNode(rootNode, job.getConnectionKey(), job.getTargetDb(), job.getPageSize(), jobId, null);
+            int total = syncNode(
+                    rootNode,
+                    job.getConnectionKey(),
+                    job.getTargetDb(),
+                    job.getPageSize(),
+                    jobId,
+                    null,
+                    relationalContext);
 
             if (rootNode.children() != null && !rootNode.children().isEmpty()) {
                 total += syncTree(
@@ -87,7 +95,8 @@ public class SharePointMigrationJob implements Job {
                         job.getTargetDb(),
                         job.getPageSize(),
                         jobId,
-                        rootNode.tableName());
+                        rootNode.tableName(),
+                        relationalContext);
             }
 
             migrationLog.setStatus(JobStatus.SUCCESS);
@@ -124,39 +133,128 @@ public class SharePointMigrationJob implements Job {
             case CURRENT_DATE_BR -> OffsetDateTime.now(ZONE_BR).toLocalDate();
             case UUID_GEN -> UUID.randomUUID().toString();
             case STATIC_VALUE -> definition.staticValue();
+            case AUTO_INCREMENT -> null; // O Banco de Dados assume
         };
     }
 
-    private int syncNode(JobNode node, String connectionKey, TargetDb targetDb, int pageSize, Long jobId, String parentTableName) {
+    private static class RelationalContext {
+        // Table Name -> (SharePoint ID -> MySQL ID)
+        private final Map<String, Map<Object, Long>> idMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public void addMapping(String tableName, Object sharePointId, Long mySqlId) {
+            if (sharePointId == null || mySqlId == null) return;
+            idMap.computeIfAbsent(tableName, k -> new java.util.concurrent.ConcurrentHashMap<>())
+                    .put(sharePointId, mySqlId);
+        }
+
+        public Long getMySqlId(String tableName, Object sharePointId) {
+            if (tableName == null || sharePointId == null) return null;
+            // SharePoint pode retornar IDs como Integer ou String, garantimos a comparação
+            Map<Object, Long> tableMap = idMap.getOrDefault(tableName, Collections.emptyMap());
+            Long id = tableMap.get(sharePointId);
+            if (id == null) {
+                id = tableMap.get(String.valueOf(sharePointId));
+            }
+            if (id == null && sharePointId instanceof String str) {
+                try { id = tableMap.get(Integer.valueOf(str)); } catch (Exception ignored) {}
+            }
+            return id;
+        }
+    }
+
+    private int syncNode(
+            JobNode node,
+            String connectionKey,
+            TargetDb targetDb,
+            int pageSize,
+            Long jobId,
+            String parentTableName,
+            RelationalContext context) {
+
+        // Sempre buscamos o ID do SharePoint para poder mapear as relações
+        Set<String> fieldsToFetch = new HashSet<>(node.fieldMappings().keySet());
+        fieldsToFetch.add("id");
+
         List<Map<String, Object>> rawData = graphClient.fetchListItems(
-                node.siteId(), node.listId(), node.fieldMappings().keySet(), pageSize);
+                node.siteId(), node.listId(), fieldsToFetch, pageSize);
 
         List<Map<String, Object>> mappedData = applyFieldMapping(rawData, node.fieldMappings(), jobId);
+
+        // Resolve Foreign Keys: Substitui o ID do SharePoint pelo ID do MySQL do pai
+        resolveForeignKeys(node, mappedData, context, parentTableName);
 
         // Injeta campos virtuais (Custom Fields)
         if (node.customFields() != null && !node.customFields().isEmpty()) {
             injectCustomFields(mappedData, node.customFields());
         }
 
-        Map<String, FieldMapping> allMappings = new HashMap<>();
-        node.fieldMappings().values().forEach(fm -> allMappings.put(fm.column(), fm));
-
-        // Os campos personalizados também precisam ser conhecidos pelo autor da DDL
-        Map<String, FieldMapping> combinedTypes = new HashMap<>(allMappings);
-        if (node.customFields() != null) {
-            node.customFields().values().forEach(customField -> {
-                combinedTypes.put(
-                        customField.column(),
-                        new FieldMapping(
-                                customField.column(), customField.type(), customField.nativeType(), false, false));
-            });
-        }
+        Map<String, FieldMapping> combinedTypes = buildCombinedTypes(node);
 
         MigrationWriter writer = writerRegistry.get(targetDb);
-        writer.write(connectionKey, node.tableName(), mappedData, combinedTypes, node.foreignKeys(), parentTableName);
+        List<Long> generatedKeys = writer.write(
+                connectionKey, node.tableName(), mappedData, combinedTypes, node.foreignKeys(), parentTableName);
+
+        // Popula o contexto relacional: Mapeia o ID do SharePoint para o ID do MySQL gerado
+        populateRelationalContext(node, rawData, generatedKeys, context);
 
         log.info("Job id={} Nodo={}: {} registros migrados", jobId, node.tableName(), mappedData.size());
-        return mappedData.size();
+
+        int totalCount = mappedData.size();
+
+        // Processa filhos recursivamente
+        if (node.children() != null) {
+            for (JobNode child : node.children()) {
+                totalCount += syncNode(child, connectionKey, targetDb, pageSize, jobId, node.tableName(), context);
+            }
+        }
+
+        return totalCount;
+    }
+
+    private void resolveForeignKeys(
+            JobNode node, List<Map<String, Object>> mappedData, RelationalContext context, String parentTableName) {
+        if (parentTableName == null || node.foreignKeys() == null || node.foreignKeys().isEmpty()) return;
+
+        for (ForeignKeyDefinition fk : node.foreignKeys()) {
+            for (Map<String, Object> row : mappedData) {
+                Object sharePointParentId = row.get(fk.localColumn());
+                if (sharePointParentId != null) {
+                    Long mySqlParentId = context.getMySqlId(parentTableName, sharePointParentId);
+                    if (mySqlParentId != null) {
+                        row.put(fk.localColumn(), mySqlParentId);
+                    }
+                }
+            }
+        }
+    }
+
+    private void populateRelationalContext(
+            JobNode node, List<Map<String, Object>> rawData, List<Long> generatedKeys, RelationalContext context) {
+        if (generatedKeys.size() != rawData.size()) return;
+
+        for (int i = 0; i < rawData.size(); i++) {
+            Object sharePointId = rawData.get(i).get("id");
+            Long mySqlId = generatedKeys.get(i);
+            context.addMapping(node.tableName(), sharePointId, mySqlId);
+        }
+    }
+
+    private Map<String, FieldMapping> buildCombinedTypes(JobNode node) {
+        Map<String, FieldMapping> combined = new HashMap<>();
+        node.fieldMappings().values().forEach(fieldMapping -> combined.put(fieldMapping.column(), fieldMapping));
+        if (node.customFields() != null) {
+            node.customFields().values().forEach(customField -> {
+                combined.put(
+                        customField.column(),
+                        new FieldMapping(
+                                customField.column(),
+                                customField.type(),
+                                customField.nativeType(),
+                                customField.primaryKey(),
+                                customField.uniqueKey()));
+            });
+        }
+        return combined;
     }
 
     private void injectCustomFields(List<Map<String, Object>> rows, Map<String, CustomFieldDefinition> customFields) {
@@ -167,7 +265,14 @@ public class SharePointMigrationJob implements Job {
         });
     }
 
-    private int syncTree(List<JobNode> nodes, String connectionKey, TargetDb targetDb, int pageSize, Long jobId, String parentTableName) {
+    private int syncTree(
+            List<JobNode> nodes,
+            String connectionKey,
+            TargetDb targetDb,
+            int pageSize,
+            Long jobId,
+            String parentTableName,
+            RelationalContext context) {
         if (nodes == null || nodes.isEmpty()) return 0;
 
         // INFO: Usamos virtual thread para api mais atual do java e trabalhamos com futures
@@ -176,8 +281,8 @@ public class SharePointMigrationJob implements Job {
 
             for (JobNode node : nodes) {
                 futures.add(executor.submit(() -> {
-                    int count = syncNode(node, connectionKey, targetDb, pageSize, jobId, parentTableName);
-                    count += syncTree(node.children(), connectionKey, targetDb, pageSize, jobId, node.tableName());
+                    int count = syncNode(node, connectionKey, targetDb, pageSize, jobId, parentTableName, context);
+                    count += syncTree(node.children(), connectionKey, targetDb, pageSize, jobId, node.tableName(), context);
 
                     return count;
                 }));
@@ -207,7 +312,8 @@ public class SharePointMigrationJob implements Job {
             List<Map<String, Object>> rows, Map<String, FieldMapping> fieldMappings, Long jobId) {
 
         Map<String, FieldMapping> normalizedMappings = new HashMap<>();
-        fieldMappings.forEach((fieldName, mapping) -> normalizedMappings.put(fieldName.toLowerCase(), mapping));
+        fieldMappings.forEach(
+                (fieldName, fieldMapping) -> normalizedMappings.put(fieldName.toLowerCase(), fieldMapping));
 
         List<Map<String, Object>> mappedRows = rows.stream()
                 .map(row -> {

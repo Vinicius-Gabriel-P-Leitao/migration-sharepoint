@@ -1,13 +1,16 @@
 import { useQueries } from '@tanstack/react-query';
-import { useJobs } from '@/lib/hooks/jobs.hook';
-import { jobsService } from '@/routes/jobs/services/jobs.service';
-import type { JobStatus } from '@/routes/jobs/jobs.type';
-import { Badge } from '@/lib/components/ui/badge';
-import { Skeleton } from '@/lib/components/ui/skeleton';
-import { Card, CardContent } from '@/lib/components/ui/card';
+import { useJobs } from '@lib/hooks/jobs.hook';
+import { jobsService } from '@lib/services/jobs.service';
+import type { JobStatus, LogResponse } from '@routes/jobs/jobs.type';
+import { ShBadge } from '@lib/components/sh-badge/badge.component';
+import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
+import { ShCard, ShCardContent } from '@lib/components/sh-card/card.component';
 import { ScrollText } from 'lucide-react';
 
-const statusMeta: Record<JobStatus, { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' | 'destructive' }> = {
+const statusMeta: Record<
+  JobStatus,
+  { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' | 'destructive' }
+> = {
   RUNNING: { label: 'Rodando', variant: 'running' },
   SUCCESS: { label: 'Sucesso', variant: 'success' },
   FAILED: { label: 'Falha', variant: 'destructive' },
@@ -31,6 +34,10 @@ const formatDuration = (start: string, end?: string) => {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 };
 
+interface LogWithJobName extends LogResponse {
+  jobName: string;
+}
+
 export const LogsRoute = () => {
   const { data: jobs, isLoading: loadingJobs } = useJobs();
 
@@ -44,9 +51,12 @@ export const LogsRoute = () => {
 
   const isLoading = loadingJobs || logQueries.some((q) => q.isLoading);
 
-  const allLogs = logQueries
+  const allLogs: LogWithJobName[] = logQueries
     .flatMap((q, i) =>
-      (q.data ?? []).map((log) => ({ ...log, jobName: jobs?.[i]?.name ?? `Job ${log.jobId}` }))
+      ((q.data as LogResponse[]) ?? []).map((log) => ({
+        ...log,
+        jobName: jobs?.[i]?.name ?? `Job ${log.jobId}`,
+      }))
     )
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
 
@@ -64,26 +74,26 @@ export const LogsRoute = () => {
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="rounded-lg border p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-5 w-16" />
+                <ShSkeleton className="h-4 w-40" />
+                <ShSkeleton className="h-5 w-16" />
               </div>
-              <Skeleton className="h-3 w-56" />
-              <Skeleton className="h-3 w-32" />
+              <ShSkeleton className="h-3 w-56" />
+              <ShSkeleton className="h-3 w-32" />
             </div>
           ))}
         </div>
       )}
 
       {!isLoading && allLogs.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-16 flex flex-col items-center gap-4 text-muted-foreground">
+        <ShCard className="border-dashed">
+          <ShCardContent className="py-16 flex flex-col items-center gap-4 text-muted-foreground">
             <ScrollText className="w-12 h-12 opacity-20" />
             <div className="text-center">
               <p className="font-medium text-foreground">Nenhuma execução registrada</p>
               <p className="text-sm mt-1">Execute um job para ver o histórico aqui.</p>
             </div>
-          </CardContent>
-        </Card>
+          </ShCardContent>
+        </ShCard>
       )}
 
       {!isLoading && allLogs.length > 0 && (
@@ -94,7 +104,9 @@ export const LogsRoute = () => {
               <div key={log.id} className="rounded-lg border p-4 space-y-1.5 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium truncate">{log.jobName}</span>
-                  <Badge variant={meta.variant} className="shrink-0">{meta.label}</Badge>
+                  <ShBadge variant={meta.variant} className="shrink-0">
+                    {meta.label}
+                  </ShBadge>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 text-xs text-muted-foreground">
                   <span>Início: {formatDateTime(log.startedAt)}</span>

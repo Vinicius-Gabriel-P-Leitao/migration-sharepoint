@@ -8,7 +8,8 @@ export type CustomFunction =
   | 'CURRENT_TIMESTAMP_UTC_3'
   | 'CURRENT_DATE_BR'
   | 'UUID_GEN'
-  | 'STATIC_VALUE';
+  | 'STATIC_VALUE'
+  | 'AUTO_INCREMENT';
 
 export interface FieldMapping {
   column: string;
@@ -24,6 +25,8 @@ export interface CustomFieldDefinition {
   nativeType: string;
   function: CustomFunction;
   staticValue?: string;
+  primaryKey: boolean;
+  uniqueKey: boolean;
 }
 
 export interface ForeignKeyDefinition {
