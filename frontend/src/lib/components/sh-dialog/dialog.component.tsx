@@ -10,13 +10,13 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from '@/lib/components/ui/dialog';
+} from '@lib/components/ui/dialog';
 
 const SIZE_MAP = {
-  sm:   { maxWidth: '24rem' },
-  md:   { maxWidth: '28rem' },
-  lg:   { maxWidth: '32rem' },
-  xl:   { maxWidth: '36rem' },
+  sm: { maxWidth: '24rem' },
+  md: { maxWidth: '28rem' },
+  lg: { maxWidth: '32rem' },
+  xl: { maxWidth: '36rem' },
   '2xl': { maxWidth: '42rem' },
   '3xl': { maxWidth: '48rem' },
   '4xl': { maxWidth: '56rem' },
@@ -26,8 +26,7 @@ const SIZE_MAP = {
 
 type DialogSize = keyof typeof SIZE_MAP;
 
-interface ShDialogContentProps
-  extends React.ComponentPropsWithoutRef<typeof DialogContent> {
+interface ShDialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogContent> {
   size?: DialogSize;
   maxWidth?: React.CSSProperties['maxWidth'];
   maxHeight?: React.CSSProperties['maxHeight'];
@@ -44,6 +43,7 @@ export const ShDialogContent = ({
 
   return (
     <DialogContent
+      aria-describedby={props['aria-describedby'] || undefined}
       style={{
         maxWidth: maxWidth ?? sizeStyle.maxWidth,
         maxHeight: maxHeight ?? undefined,

@@ -23,7 +23,9 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@lib/*": ["src/lib/*"],
+      "@routes/*": ["src/routes/*"]
     }
   },
   "include": ["src"]

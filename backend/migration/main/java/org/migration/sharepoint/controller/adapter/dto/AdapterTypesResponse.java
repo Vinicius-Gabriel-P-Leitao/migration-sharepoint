@@ -10,5 +10,6 @@ package org.migration.sharepoint.controller.adapter.dto;
 import java.util.List;
 import java.util.Map;
 import org.migration.sharepoint.data.enums.ColumnType;
+import org.migration.sharepoint.infra.writer.NativeTypeDefinition;
 
-public record AdapterTypesResponse(Map<ColumnType, String> canonical, List<String> nativeTypes) {}
+public record AdapterTypesResponse(Map<ColumnType, String> canonical, List<NativeTypeDefinition> nativeTypes) {}

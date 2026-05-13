@@ -9,12 +9,11 @@ package org.migration.sharepoint.data.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Map;
 import lombok.*;
 import org.migration.sharepoint.data.enums.IntervalUnit;
 import org.migration.sharepoint.data.enums.ScheduleType;
 import org.migration.sharepoint.data.enums.TargetDb;
-import org.migration.sharepoint.infra.converter.MapToJsonConverter;
+import org.migration.sharepoint.infra.converter.JobNodeConverter;
 
 @Entity
 @Table(name = "migration_jobs")
@@ -25,63 +24,49 @@ import org.migration.sharepoint.infra.converter.MapToJsonConverter;
 @AllArgsConstructor
 public class MigrationJob {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @Column(nullable = false)
-  private String name;
+    @Column(nullable = false)
+    private String name;
 
-  @Column(nullable = false)
-  private String siteId;
+    @Column(nullable = false)
+    private Integer pageSize;
 
-  @Column(nullable = false)
-  private String listId;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TargetDb targetDb;
 
-  // Itens retornados por página na Graph API (1–5000)
-  @Column(nullable = false)
-  private Integer pageSize;
+    @Column(nullable = false)
+    private String connectionKey;
 
-  // {"SpField": {"column": "db_col", "type": CANONICAL, "nativeType": "NATIVE"}}
-  @Convert(converter = MapToJsonConverter.class)
-  @Column(columnDefinition = "TEXT", nullable = false)
-  private Map<String, FieldMapping> fieldMappings;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ScheduleType scheduleType;
 
-  // Target database
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false)
-  private TargetDb targetDb;
+    private Long intervalValue;
 
-  // Chave que referencia a connection string no ConnectionRegistry (nunca a URL em si)
-  @Column(nullable = false)
-  private String connectionKey;
+    @Enumerated(EnumType.STRING)
+    private IntervalUnit intervalUnit;
 
-  @Column(nullable = false)
-  private String tableName;
+    private String cronExpression;
 
-  // Scheduling
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false)
-  private ScheduleType scheduleType;
+    @Convert(converter = JobNodeConverter.class)
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private JobNode migration;
 
-  private Long intervalValue;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-  @Enumerated(EnumType.STRING)
-  private IntervalUnit intervalUnit;
+    @PrePersist
+    void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
 
-  private String cronExpression;
-
-  private LocalDateTime createdAt;
-  private LocalDateTime updatedAt;
-
-  @PrePersist
-  void prePersist() {
-    createdAt = LocalDateTime.now();
-    updatedAt = LocalDateTime.now();
-  }
-
-  @PreUpdate
-  void preUpdate() {
-    updatedAt = LocalDateTime.now();
-  }
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

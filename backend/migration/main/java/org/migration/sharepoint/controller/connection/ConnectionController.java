@@ -23,56 +23,52 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(
-    name = "Connections",
-    description =
-        "Registry em memória de connection strings. As conexões podem ser pré-carregadas via variáveis de ambiente (`CONN_URL_*` + `CONN_NAME_*`) ou registradas em runtime via esta API. A URL nunca é exposta nas respostas.")
+        name = "Connections",
+        description =
+                "Registry em memória de connection strings. As conexões podem ser pré-carregadas via variáveis de ambiente (`CONN_URL_*` + `CONN_NAME_*`) ou registradas em runtime via esta API. A URL nunca é exposta nas respostas.")
 @RestController
 @RequestMapping("/v1/connections")
 @RequiredArgsConstructor
 public class ConnectionController {
 
-  private final ConnectionRegistry registry;
+    private final ConnectionRegistry registry;
 
-  @Operation(
-      summary = "Listar conexões registradas",
-      description =
-          "Retorna todas as conexões disponíveis no registry (chave + nome). A URL da connection string nunca é exposta.")
-  @GetMapping
-  public List<ConnectionSummary> list() {
-    return registry.list();
-  }
+    @Operation(
+            summary = "Listar conexões registradas",
+            description =
+                    "Retorna todas as conexões disponíveis no registry (chave + nome). A URL da connection string nunca é exposta.")
+    @GetMapping
+    public List<ConnectionSummary> list() {
+        return registry.list();
+    }
 
-  @Operation(
-      summary = "Registrar nova conexão",
-      description =
-          "Registra uma connection string em memória. A `key` deve conter apenas letras maiúsculas, números e underscores (ex: `MYSQL_PROD`). Para conexões permanentes, prefira definir `CONN_URL_{KEY}` e `CONN_NAME_{KEY}` como variáveis de ambiente — elas sobrevivem a restarts do servidor.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "201", description = "Conexão registrada"),
-    @ApiResponse(
-        responseCode = "400",
-        description = "Payload inválido ou key com formato incorreto"),
-    @ApiResponse(
-        responseCode = "409",
-        description = "Key já registrada — use DELETE antes de re-registrar")
-  })
-  @PostMapping
-  public ResponseEntity<Void> register(@RequestBody @Valid ConnectionRequest request) {
-    registry.register(request.key(), request.name(), request.url());
-    return ResponseEntity.status(HttpStatus.CREATED).build();
-  }
+    @Operation(
+            summary = "Registrar nova conexão",
+            description =
+                    "Registra uma connection string em memória. A `key` deve conter apenas letras maiúsculas, números e underscores (ex: `MYSQL_PROD`). Para conexões permanentes, prefira definir `CONN_URL_{KEY}` e `CONN_NAME_{KEY}` como variáveis de ambiente — elas sobrevivem a restarts do servidor.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Conexão registrada"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido ou key com formato incorreto"),
+        @ApiResponse(responseCode = "409", description = "Key já registrada — use DELETE antes de re-registrar")
+    })
+    @PostMapping
+    public ResponseEntity<Void> register(@RequestBody @Valid ConnectionRequest request) {
+        registry.register(request.key(), request.name(), request.url());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 
-  @Operation(
-      summary = "Remover conexão",
-      description =
-          "Remove a conexão do registry em memória. Jobs que referenciam esta key falharão na próxima execução. Não afeta variáveis de ambiente — na próxima startup a conexão será recarregada automaticamente se as env vars ainda estiverem definidas.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "204", description = "Conexão removida"),
-    @ApiResponse(responseCode = "404", description = "Key não encontrada")
-  })
-  @DeleteMapping("/{key}")
-  public ResponseEntity<Void> remove(
-      @Parameter(description = "Chave da conexão (ex: MYSQL_PROD)") @PathVariable String key) {
-    registry.remove(key);
-    return ResponseEntity.noContent().build();
-  }
+    @Operation(
+            summary = "Remover conexão",
+            description =
+                    "Remove a conexão do registry em memória. Jobs que referenciam esta key falharão na próxima execução. Não afeta variáveis de ambiente — na próxima startup a conexão será recarregada automaticamente se as env vars ainda estiverem definidas.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Conexão removida"),
+        @ApiResponse(responseCode = "404", description = "Key não encontrada")
+    })
+    @DeleteMapping("/{key}")
+    public ResponseEntity<Void> remove(
+            @Parameter(description = "Chave da conexão (ex: MYSQL_PROD)") @PathVariable String key) {
+        registry.remove(key);
+        return ResponseEntity.noContent().build();
+    }
 }

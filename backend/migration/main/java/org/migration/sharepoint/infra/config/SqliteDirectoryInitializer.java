@@ -21,34 +21,38 @@ import org.springframework.stereotype.Component;
 
 /**
  * Cria o diretório pai do arquivo SQLite antes que o HikariCP tente abri-lo.
- * BeanFactoryPostProcessor executa antes da instanciação de qualquer bean, garantindo que o
- * diretório exista antes do DataSource ser criado.
+ * BeanFactoryPostProcessor executa antes da instanciação de qualquer bean,
+ * garantindo que o diretório exista antes do DataSource ser criado.
  */
 @Component
 public class SqliteDirectoryInitializer implements BeanFactoryPostProcessor, EnvironmentAware {
 
-  private Environment environment;
+    private Environment environment;
 
-  @Override
-  public void setEnvironment(@NonNull Environment environment) {
-    this.environment = environment;
-  }
-
-  @Override
-  public void postProcessBeanFactory(@NonNull ConfigurableListableBeanFactory beanFactory)
-      throws BeansException {
-    String url = environment.getProperty("spring.datasource.url", "");
-    if (!url.startsWith("jdbc:sqlite:")) return;
-
-    String filePath = url.substring("jdbc:sqlite:".length());
-    Path dir = Paths.get(filePath).toAbsolutePath().getParent();
-    if (dir == null) return;
-
-    try {
-      Files.createDirectories(dir);
-    } catch (IOException ioException) {
-      throw new IllegalStateException(
-          "Não foi possível criar o diretório para o banco SQLite: " + dir, ioException);
+    @Override
+    public void setEnvironment(@NonNull Environment environment) {
+        this.environment = environment;
     }
-  }
+
+    @Override
+    public void postProcessBeanFactory(@NonNull ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+        if (!jdbcUrl.startsWith("jdbc:sqlite:")) return;
+
+        String rawPath = jdbcUrl.substring("jdbc:sqlite:".length());
+
+        // Remove query parameters (?config...) do caminho do arquivo
+        int queryStartIndex = rawPath.indexOf('?');
+        String cleanFilePath = queryStartIndex != -1 ? rawPath.substring(0, queryStartIndex) : rawPath;
+
+        Path directoryPath = Paths.get(cleanFilePath).toAbsolutePath().getParent();
+        if (directoryPath == null) return;
+
+        try {
+            Files.createDirectories(directoryPath);
+        } catch (IOException ioException) {
+            throw new IllegalStateException(
+                    "Não foi possível criar o diretório para o banco SQLite: %s".formatted(directoryPath), ioException);
+        }
+    }
 }

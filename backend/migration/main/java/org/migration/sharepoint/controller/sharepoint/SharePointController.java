@@ -25,33 +25,30 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class SharePointController {
 
-  private final GraphClient graphClient;
+    private final GraphClient graphClient;
 
-  @Operation(
-      summary = "Resolver URL de lista SharePoint",
-      description =
-          """
-          Recebe a URL de uma lista SharePoint no formato do browser e retorna os metadados
-          necessários para criar um job de migração.
+    @Operation(summary = "Resolver URL de lista SharePoint", description = """
+			Recebe a URL de uma lista SharePoint no formato do browser e retorna os metadados
+			necessários para criar um job de migração.
 
-          **Exemplo de URL aceita:**
-          `https://tenant.sharepoint.com/sites/MySite/Lists/MyList/AllItems.aspx`
+			**Exemplo de URL aceita:**
+			`https://tenant.sharepoint.com/sites/MySite/Lists/MyList/AllItems.aspx`
 
-          **O que retorna:**
-          - `siteId` — ID do site SharePoint
-          - `listId` — ID da lista
-          - `columns` — nomes dos campos disponíveis (sem colunas ocultas), prontos para usar em `fieldMappings`
-          """)
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Metadados resolvidos com sucesso"),
-    @ApiResponse(responseCode = "400", description = "URL inválida ou não contém /Lists/"),
-    @ApiResponse(responseCode = "401", description = "Credenciais Azure inválidas"),
-    @ApiResponse(responseCode = "403", description = "Sem permissão para acessar o site ou lista"),
-    @ApiResponse(responseCode = "404", description = "Site ou lista não encontrados")
-  })
-  @PostMapping("/resolve")
-  public SharePointResolveResponse resolve(@RequestBody @Valid SharePointResolveRequest request) {
-    SharePointResolveResult result = graphClient.resolveSharePointUrl(request.url());
-    return new SharePointResolveResponse(result.siteId(), result.listId(), result.columns());
-  }
+			**O que retorna:**
+			- `siteId` — ID do site SharePoint
+			- `listId` — ID da lista
+			- `columns` — nomes dos campos disponíveis (sem colunas ocultas), prontos para usar em `fieldMappings`
+			""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Metadados resolvidos com sucesso"),
+        @ApiResponse(responseCode = "400", description = "URL inválida ou não contém /Lists/"),
+        @ApiResponse(responseCode = "401", description = "Credenciais Azure inválidas"),
+        @ApiResponse(responseCode = "403", description = "Sem permissão para acessar o site ou lista"),
+        @ApiResponse(responseCode = "404", description = "Site ou lista não encontrados")
+    })
+    @PostMapping("/resolve")
+    public SharePointResolveResponse resolve(@RequestBody @Valid SharePointResolveRequest request) {
+        SharePointResolveResult result = graphClient.resolveSharePointUrl(request.url());
+        return new SharePointResolveResponse(result.siteId(), result.listId(), result.columns());
+    }
 }

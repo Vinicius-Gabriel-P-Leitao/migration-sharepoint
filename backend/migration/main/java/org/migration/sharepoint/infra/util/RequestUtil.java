@@ -13,12 +13,15 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class RequestUtil {
 
-  /** Extrai o IP real do cliente, considerando possíveis proxies (X-Forwarded-For). */
-  public static String getClientIP(HttpServletRequest request) {
-    String xfHeader = request.getHeader("X-Forwarded-For");
-    if (xfHeader == null || xfHeader.isEmpty()) {
-      return request.getRemoteAddr();
+    /**
+     * Extrai o IP real do cliente, considerando possíveis proxies
+     * (X-Forwarded-For).
+     */
+    public static String getClientIP(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader == null || xfHeader.isEmpty()) {
+            return request.getRemoteAddr();
+        }
+        return xfHeader.split(",")[0].trim();
     }
-    return xfHeader.split(",")[0].trim();
-  }
 }

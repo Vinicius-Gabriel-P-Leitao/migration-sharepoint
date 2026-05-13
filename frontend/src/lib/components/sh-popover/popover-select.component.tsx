@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { Popover, PopoverTrigger, PopoverContent } from '@/lib/components/ui/popover';
-import { ScrollArea } from '@/lib/components/ui/scroll-area';
-import { cn } from '@/lib/utils/cn.util';
+import { Popover, PopoverTrigger, PopoverContent } from '@lib/components/ui/popover';
+import { ScrollArea } from '@lib/components/ui/scroll-area';
+import { cn } from '@lib/utils/cn.util';
 
 export interface ShPopoverSelectItem {
   value: string;
@@ -34,7 +34,7 @@ export const ShPopoverSelect = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const selectedItem = items.find(
-    (item): item is ShPopoverSelectItem => item !== 'separator' && item.value === value
+    (item): item is ShPopoverSelectItem => item !== 'separator' && item.value === value,
   );
 
   return (
@@ -51,13 +51,13 @@ export const ShPopoverSelect = ({
             'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'data-[size=default]:h-9 data-[size=sm]:h-8',
-            className
+            className,
           )}
         >
           <span
             className={cn(
               'truncate',
-              (!selectedItem || selectedItem.muted) && 'text-muted-foreground'
+              (!selectedItem || selectedItem.muted) && 'text-muted-foreground',
             )}
           >
             {selectedItem?.label ?? placeholder}
@@ -65,41 +65,38 @@ export const ShPopoverSelect = ({
           <ChevronDown className="pointer-events-none size-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        style={{ width: triggerRef.current?.offsetWidth }}
-        className="p-1"
-      >
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1">
         <ScrollArea className="max-h-[220px]">
-        {items.map((item, index) => {
-          if (item === 'separator') {
-            return <div key={`sep-${index}`} className="-mx-1 my-1 h-px bg-foreground/5" />;
-          }
-          const isSelected = value === item.value;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              disabled={item.disabled}
-              onClick={() => {
-                onValueChange?.(item.value);
-                setOpen(false);
-              }}
-              className={cn(
-                'relative flex w-full cursor-default items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none select-none',
-                'hover:bg-foreground/10 focus:bg-foreground/10',
-                'disabled:pointer-events-none disabled:opacity-50',
-                item.muted && 'text-muted-foreground'
-              )}
-            >
-              <span className="truncate">{item.label}</span>
-              {isSelected && (
-                <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                  <Check className="size-3.5 pointer-events-none" />
-                </span>
-              )}
-            </button>
-          );
-        })}
+          {items.map((item, index) => {
+            if (item === 'separator') {
+              return <div key={`sep-${index}`} className="-mx-1 my-1 h-px bg-foreground/5" />;
+            }
+            const isSelected = value === item.value;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                disabled={item.disabled}
+                onClick={() => {
+                  onValueChange?.(item.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'relative flex w-full cursor-default items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none select-none',
+                  'hover:bg-foreground/10 focus:bg-foreground/10',
+                  'disabled:pointer-events-none disabled:opacity-50',
+                  item.muted && 'text-muted-foreground',
+                )}
+              >
+                <span className="truncate">{item.label}</span>
+                {isSelected && (
+                  <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+                    <Check className="size-3.5 pointer-events-none" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </ScrollArea>
       </PopoverContent>
     </Popover>

@@ -11,7 +11,7 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 
 public class BadRequestException extends AppException {
-  public BadRequestException(ErrorCode errorCode, String message) {
-    super(errorCode, message);
-  }
+    public BadRequestException(ErrorCode errorCode, String message) {
+        super(errorCode, message);
+    }
 }

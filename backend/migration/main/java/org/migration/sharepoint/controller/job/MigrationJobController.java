@@ -29,89 +29,84 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MigrationJobController {
 
-  private final MigrationJobService service;
+    private final MigrationJobService service;
 
-  @Operation(summary = "Listar todos os jobs")
-  @GetMapping
-  public List<JobResponse> findAll() {
-    return service.findAll();
-  }
+    @Operation(summary = "Listar todos os jobs")
+    @GetMapping
+    public List<JobResponse> findAll() {
+        return service.findAll();
+    }
 
-  @Operation(summary = "Buscar job por ID")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Job encontrado"),
-    @ApiResponse(responseCode = "404", description = "Job não encontrado")
-  })
-  @GetMapping("/{id}")
-  public JobResponse findById(@Parameter(description = "ID do job") @PathVariable Long id) {
-    return service.findById(id);
-  }
+    @Operation(summary = "Buscar job por ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Job encontrado"),
+        @ApiResponse(responseCode = "404", description = "Job não encontrado")
+    })
+    @GetMapping("/{id}")
+    public JobResponse findById(@Parameter(description = "ID do job") @PathVariable Long id) {
+        return service.findById(id);
+    }
 
-  @Operation(
-      summary = "Criar novo job",
-      description =
-          "Cria e agenda um novo job de migração. O campo `connectionKey` deve referenciar uma conexão previamente registrada em `POST /v1/connections`.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "201", description = "Job criado com sucesso"),
-    @ApiResponse(responseCode = "400", description = "Payload inválido"),
-    @ApiResponse(responseCode = "404", description = "connectionKey não encontrada no registry")
-  })
-  @PostMapping
-  public ResponseEntity<JobResponse> create(@RequestBody @Valid JobRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
-  }
+    @Operation(
+            summary = "Criar novo job",
+            description =
+                    "Cria e agenda um novo job de migração. O campo `connectionKey` deve referenciar uma conexão previamente registrada em `POST /v1/connections`.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Job criado com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(responseCode = "404", description = "connectionKey não encontrada no registry")
+    })
+    @PostMapping
+    public ResponseEntity<JobResponse> create(@RequestBody @Valid JobRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
+    }
 
-  @Operation(
-      summary = "Atualizar job",
-      description = "Substitui todas as configurações do job e reagenda no Quartz.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Job atualizado"),
-    @ApiResponse(responseCode = "400", description = "Payload inválido"),
-    @ApiResponse(responseCode = "404", description = "Job ou connectionKey não encontrados")
-  })
-  @PutMapping("/{id}")
-  public JobResponse update(
-      @Parameter(description = "ID do job") @PathVariable Long id,
-      @RequestBody @Valid JobRequest request) {
-    return service.update(id, request);
-  }
+    @Operation(summary = "Atualizar job", description = "Substitui todas as configurações do job e reagenda no Quartz.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Job atualizado"),
+        @ApiResponse(responseCode = "400", description = "Payload inválido"),
+        @ApiResponse(responseCode = "404", description = "Job ou connectionKey não encontrados")
+    })
+    @PutMapping("/{id}")
+    public JobResponse update(
+            @Parameter(description = "ID do job") @PathVariable Long id, @RequestBody @Valid JobRequest request) {
+        return service.update(id, request);
+    }
 
-  @Operation(
-      summary = "Excluir job",
-      description = "Remove o job do banco e cancela o agendamento no Quartz.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "204", description = "Job excluído"),
-    @ApiResponse(responseCode = "404", description = "Job não encontrado")
-  })
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> delete(@Parameter(description = "ID do job") @PathVariable Long id) {
-    service.delete(id);
-    return ResponseEntity.noContent().build();
-  }
+    @Operation(summary = "Excluir job", description = "Remove o job do banco e cancela o agendamento no Quartz.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Job excluído"),
+        @ApiResponse(responseCode = "404", description = "Job não encontrado")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@Parameter(description = "ID do job") @PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 
-  @Operation(
-      summary = "Disparar execução manual",
-      description =
-          "Executa o job imediatamente, independente do agendamento configurado. Retorna 202 assim  que o disparo é enfileirado — a execução ocorre de forma assíncrona.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "202", description = "Execução enfileirada"),
-    @ApiResponse(responseCode = "404", description = "Job não encontrado")
-  })
-  @PostMapping("/{id}/run")
-  public ResponseEntity<Void> run(@Parameter(description = "ID do job") @PathVariable Long id) {
-    service.runNow(id);
-    return ResponseEntity.accepted().build();
-  }
+    @Operation(
+            summary = "Disparar execução manual",
+            description =
+                    "Executa o job imediatamente, independente do agendamento configurado. Retorna 202 assim  que o disparo é enfileirado — a execução ocorre de forma assíncrona.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "Execução enfileirada"),
+        @ApiResponse(responseCode = "404", description = "Job não encontrado")
+    })
+    @PostMapping("/{id}/run")
+    public ResponseEntity<Void> run(@Parameter(description = "ID do job") @PathVariable Long id) {
+        service.runNow(id);
+        return ResponseEntity.accepted().build();
+    }
 
-  @Operation(
-      summary = "Histórico de execuções",
-      description = "Retorna todos os logs de execução do job em ordem decrescente de data.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Lista de logs"),
-    @ApiResponse(responseCode = "404", description = "Job não encontrado")
-  })
-  @GetMapping("/{id}/logs")
-  public List<LogResponse> logs(@Parameter(description = "ID do job") @PathVariable Long id) {
-    return service.findLogs(id);
-  }
+    @Operation(
+            summary = "Histórico de execuções",
+            description = "Retorna todos os logs de execução do job em ordem decrescente de data.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Lista de logs"),
+        @ApiResponse(responseCode = "404", description = "Job não encontrado")
+    })
+    @GetMapping("/{id}/logs")
+    public List<LogResponse> logs(@Parameter(description = "ID do job") @PathVariable Long id) {
+        return service.findLogs(id);
+    }
 }

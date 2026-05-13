@@ -12,5 +12,5 @@ import org.migration.sharepoint.data.model.MigrationLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MigrationLogRepository extends JpaRepository<MigrationLog, Long> {
-  List<MigrationLog> findByJobIdOrderByStartedAtDesc(Long jobId);
+    List<MigrationLog> findByJobIdOrderByStartedAtDesc(Long jobId);
 }

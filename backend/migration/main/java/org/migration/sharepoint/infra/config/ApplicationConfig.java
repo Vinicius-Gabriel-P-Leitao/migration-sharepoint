@@ -22,25 +22,25 @@ import org.springframework.web.client.RestClient;
 @RequiredArgsConstructor
 public class ApplicationConfig {
 
-  @Bean
-  public ObjectMapper objectMapper() {
-    ObjectMapper mapper = new ObjectMapper();
+    @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
 
-    mapper.registerModule(new JavaTimeModule());
-    mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-    mapper.configure(SerializationFeature.WRITE_DATES_WITH_ZONE_ID, true);
-    mapper.setTimeZone(TimeZone.getTimeZone("America/Sao_Paulo"));
+        mapper.registerModule(new JavaTimeModule());
+        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        mapper.configure(SerializationFeature.WRITE_DATES_WITH_ZONE_ID, true);
+        mapper.setTimeZone(TimeZone.getTimeZone("America/Sao_Paulo"));
 
-    return mapper;
-  }
+        return mapper;
+    }
 
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-  @Bean
-  public RestClient.Builder restClientBuilder() {
-    return RestClient.builder();
-  }
+    @Bean
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
 }
