@@ -69,9 +69,9 @@ class SharePointMigrationJobTest {
     private static final Long JOB_ID = 42L;
     private static final Map<String, FieldMapping> FIELD_MAPPINGS = Map.of(
             "Title",
-            new FieldMapping("title", ColumnType.TEXT, null),
+            new FieldMapping("title", ColumnType.TEXT, null, false),
             "Amount",
-            new FieldMapping("amount", ColumnType.NUMBER, null));
+            new FieldMapping("amount", ColumnType.NUMBER, null, false));
 
     @BeforeEach
     void setUpContext() {
@@ -89,7 +89,8 @@ class SharePointMigrationJobTest {
                 .targetDb(TargetDb.MYSQL)
                 .connectionKey("MYSQL_PROD")
                 .scheduleType(scheduleType)
-                .migration(new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null))
+                .migration(new JobNode(
+                        null, "site-123", "list-456", "test_table", FIELD_MAPPINGS, Map.of(), List.of(), List.of()))
                 .build();
     }
 

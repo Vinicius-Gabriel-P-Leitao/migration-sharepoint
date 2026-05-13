@@ -93,9 +93,11 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
     name.trim() !== '' &&
     connectionKey !== '' &&
     migration !== null &&
-    migration.siteId !== '' &&
-    migration.tableName !== '' &&
+    (migration.siteId ?? '') !== '' &&
+    (migration.tableName ?? '') !== '' &&
     (scheduleType !== 'CRON' || cronExpression.trim() !== '');
+
+  if (!job) return null;
 
   return (
     <ShSheet open={open} onOpenChange={onOpenChange}>
@@ -120,7 +122,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
             <ShTabsContent value="geral" className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
               <div className="space-y-1.5">
                 <ShLabel>Nome do Job</ShLabel>
-                <ShInput value={name} onChange={(e) => setName(e.target.value)} />
+                <ShInput value={name} onChange={(event) => setName(event.target.value)} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -128,7 +130,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                   <ShLabel>Banco de Destino</ShLabel>
                   <ShSelect
                     value={targetDb}
-                    onValueChange={(v) => setTargetDb(v as TargetDb)}
+                    onValueChange={(value) => setTargetDb(value as TargetDb)}
                   >
                     {TARGET_DBS.map((db) => (
                       <ShSelectItem key={db} value={db}>{db}</ShSelectItem>
@@ -144,9 +146,9 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                     placeholder={loadingConnections ? 'Carregando...' : 'Selecione...'}
                     disabled={loadingConnections}
                   >
-                    {connections?.map((c) => (
-                      <ShSelectItem key={c.key} value={c.key}>
-                        {c.name} ({c.key})
+                    {connections?.map((connection) => (
+                      <ShSelectItem key={connection.key} value={connection.key}>
+                        {connection.name} ({connection.key})
                       </ShSelectItem>
                     ))}
                   </ShSelect>
@@ -157,7 +159,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                   <ShInput
                     type="number"
                     value={pageSize}
-                    onChange={(e) => setPageSize(parseInt(e.target.value) || 1000)}
+                    onChange={(event) => setPageSize(parseInt(event.target.value) || 1000)}
                   />
                 </div>
                 
@@ -165,7 +167,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                   <ShLabel>Agendamento</ShLabel>
                   <ShSelect
                     value={scheduleType}
-                    onValueChange={(v) => setScheduleType(v as ScheduleType)}
+                    onValueChange={(value) => setScheduleType(value as ScheduleType)}
                   >
                     <ShSelectItem value="MANUAL">Manual</ShSelectItem>
                     <ShSelectItem value="INTERVAL">Intervalo</ShSelectItem>
@@ -182,17 +184,17 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                     <ShInput
                       type="number"
                       value={intervalValue}
-                      onChange={(e) => setIntervalValue(parseInt(e.target.value) || 1)}
+                      onChange={(event) => setIntervalValue(parseInt(event.target.value) || 1)}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <ShLabel>Unidade</ShLabel>
                     <ShSelect
                       value={intervalUnit}
-                      onValueChange={(v) => setIntervalUnit(v as typeof INTERVAL_UNITS[number])}
+                      onValueChange={(value) => setIntervalUnit(value as typeof INTERVAL_UNITS[number])}
                     >
-                      {INTERVAL_UNITS.map((u) => (
-                        <ShSelectItem key={u} value={u}>{u}</ShSelectItem>
+                      {INTERVAL_UNITS.map((unit) => (
+                        <ShSelectItem key={unit} value={unit}>{unit}</ShSelectItem>
                       ))}
                     </ShSelect>
                   </div>
@@ -205,7 +207,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                   <ShInput
                     placeholder="0 0 * * *"
                     value={cronExpression}
-                    onChange={(e) => setCronExpression(e.target.value)}
+                    onChange={(event) => setCronExpression(event.target.value)}
                   />
                 </div>
               )}

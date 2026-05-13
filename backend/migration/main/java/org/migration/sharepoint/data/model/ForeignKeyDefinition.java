@@ -7,6 +7,4 @@
  */
 package org.migration.sharepoint.data.model;
 
-import org.migration.sharepoint.data.enums.ColumnType;
-
-public record FieldMapping(String column, ColumnType type, String nativeType, boolean primaryKey, boolean uniqueKey) {}
+public record ForeignKeyDefinition(String localColumn, String parentColumn) {}

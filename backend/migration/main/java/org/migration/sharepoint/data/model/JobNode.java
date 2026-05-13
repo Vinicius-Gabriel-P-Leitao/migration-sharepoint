@@ -16,4 +16,6 @@ public record JobNode(
         String listId,
         String tableName,
         Map<String, FieldMapping> fieldMappings,
+        Map<String, CustomFieldDefinition> customFields,
+        List<ForeignKeyDefinition> foreignKeys,
         List<JobNode> children) {}

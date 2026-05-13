@@ -48,6 +48,8 @@ const initialMigration: JobNode = {
   listId: '',
   tableName: '',
   fieldMappings: {},
+  customFields: {},
+  foreignKeys: [],
   children: [],
 };
 
@@ -68,7 +70,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
       // Use setImmediate-like pattern to avoid cascading render warning
       const firstKey = connections[0].key;
       setTimeout(() => {
-        setConfig((p) => (p.connectionKey === '' ? { ...p, connectionKey: firstKey } : p));
+        setConfig((previous) => (previous.connectionKey === '' ? { ...previous, connectionKey: firstKey } : previous));
       }, 0);
     }
   }, [connections, config.connectionKey]);
@@ -130,7 +132,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                 <ShInput
                   placeholder="Ex: Migração Estrutural SharePoint"
                   value={config.name}
-                  onChange={(e) => setConfig((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(event) => setConfig((previous) => ({ ...previous, name: event.target.value }))}
                 />
               </div>
 
@@ -138,7 +140,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                 <ShLabel>Banco de Destino</ShLabel>
                 <ShSelect
                   value={config.targetDb}
-                  onValueChange={(value) => setConfig((prev) => ({ ...prev, targetDb: value as TargetDb }))}
+                  onValueChange={(value) => setConfig((previous) => ({ ...previous, targetDb: value as TargetDb }))}
                 >
                   {TARGET_DBS.map((db) => (
                     <ShSelectItem key={db} value={db}>{db}</ShSelectItem>
@@ -150,7 +152,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                 <ShLabel>Conexão</ShLabel>
                 <ShSelect
                   value={config.connectionKey}
-                  onValueChange={(value) => setConfig((prev) => ({ ...prev, connectionKey: value }))}
+                  onValueChange={(value) => setConfig((previous) => ({ ...previous, connectionKey: value }))}
                   placeholder={loadingConnections ? 'Carregando...' : 'Selecione...'}
                   disabled={loadingConnections}
                 >
@@ -167,7 +169,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                 <ShInput
                   type="number"
                   value={config.pageSize}
-                  onChange={(event) => setConfig((prev) => ({ ...prev, pageSize: parseInt(event.target.value) || 1000 }))}
+                  onChange={(event) => setConfig((previous) => ({ ...previous, pageSize: parseInt(event.target.value) || 1000 }))}
                 />
               </div>
 
@@ -175,7 +177,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                 <ShLabel>Agendamento</ShLabel>
                 <ShSelect
                   value={config.scheduleType}
-                  onValueChange={(value) => setConfig((prev) => ({ ...prev, scheduleType: value as ScheduleType }))}
+                  onValueChange={(value) => setConfig((previous) => ({ ...previous, scheduleType: value as ScheduleType }))}
                 >
                   <ShSelectItem value="MANUAL">Manual</ShSelectItem>
                   <ShSelectItem value="INTERVAL">Intervalo</ShSelectItem>
@@ -191,14 +193,14 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                     <ShInput
                       type="number"
                       value={config.intervalValue}
-                      onChange={(event) => setConfig((prev) => ({ ...prev, intervalValue: parseInt(event.target.value) || 1 }))}
+                      onChange={(event) => setConfig((previous) => ({ ...previous, intervalValue: parseInt(event.target.value) || 1 }))}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <ShLabel>Unidade</ShLabel>
                     <ShSelect
                       value={config.intervalUnit}
-                      onValueChange={(value) => setConfig((prev) => ({ ...prev, intervalUnit: value as typeof INTERVAL_UNITS[number] }))}
+                      onValueChange={(value) => setConfig((previous) => ({ ...previous, intervalUnit: value as typeof INTERVAL_UNITS[number] }))}
                     >
                       {INTERVAL_UNITS.map((unit) => (
                         <ShSelectItem key={unit} value={unit}>{unit}</ShSelectItem>
@@ -214,7 +216,7 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
                   <ShInput
                     placeholder="0 0 * * * ?"
                     value={config.cronExpression}
-                    onChange={(event) => setConfig((prev) => ({ ...prev, cronExpression: event.target.value }))}
+                    onChange={(event) => setConfig((previous) => ({ ...previous, cronExpression: event.target.value }))}
                   />
                 </div>
               )}

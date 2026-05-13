@@ -36,18 +36,23 @@ public class SqliteDirectoryInitializer implements BeanFactoryPostProcessor, Env
 
     @Override
     public void postProcessBeanFactory(@NonNull ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        String url = environment.getProperty("spring.datasource.url", "");
-        if (!url.startsWith("jdbc:sqlite:")) return;
+        String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+        if (!jdbcUrl.startsWith("jdbc:sqlite:")) return;
 
-        String filePath = url.substring("jdbc:sqlite:".length());
-        Path dir = Paths.get(filePath).toAbsolutePath().getParent();
-        if (dir == null) return;
+        String rawPath = jdbcUrl.substring("jdbc:sqlite:".length());
+
+        // Remove query parameters (?config...) do caminho do arquivo
+        int queryStartIndex = rawPath.indexOf('?');
+        String cleanFilePath = queryStartIndex != -1 ? rawPath.substring(0, queryStartIndex) : rawPath;
+
+        Path directoryPath = Paths.get(cleanFilePath).toAbsolutePath().getParent();
+        if (directoryPath == null) return;
 
         try {
-            Files.createDirectories(dir);
+            Files.createDirectories(directoryPath);
         } catch (IOException ioException) {
             throw new IllegalStateException(
-                    "Não foi possível criar o diretório para o banco SQLite: %s".formatted(dir), ioException);
+                    "Não foi possível criar o diretório para o banco SQLite: %s".formatted(directoryPath), ioException);
         }
     }
 }
