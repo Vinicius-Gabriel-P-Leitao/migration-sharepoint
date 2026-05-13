@@ -42,8 +42,7 @@ class MigrationJobControllerTest {
     private static final Map<String, FieldMapping> FIELD_MAPPINGS =
             Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null));
 
-    private static final JobNode ROOT_NODE =
-            new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null);
+    private static final JobNode ROOT_NODE = new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null);
 
     private JobResponse buildJobResponse(Long id, ScheduleType scheduleType) {
         return new JobResponse(
@@ -61,8 +60,7 @@ class MigrationJobControllerTest {
                 ROOT_NODE);
     }
 
-    private static final String VALID_JOB_JSON =
-            """
+    private static final String VALID_JOB_JSON = """
             {
               "name": "Test Job",
               "pageSize": 100,
@@ -148,8 +146,7 @@ class MigrationJobControllerTest {
 
     @Test
     void shouldReturn400WhenJobNameIsBlank() throws Exception {
-        String json =
-                """
+        String json = """
                 {
                   "name": "",
                   "pageSize": 100,
@@ -171,8 +168,7 @@ class MigrationJobControllerTest {
 
     @Test
     void shouldReturn400WhenPageSizeExceedsMax() throws Exception {
-        String json =
-                """
+        String json = """
                 {
                   "name": "Job",
                   "pageSize": 9999,
@@ -194,8 +190,7 @@ class MigrationJobControllerTest {
 
     @Test
     void shouldReturn400WhenPageSizeIsZero() throws Exception {
-        String json =
-                """
+        String json = """
                 {
                   "name": "Job",
                   "pageSize": 0,
@@ -228,11 +223,10 @@ class MigrationJobControllerTest {
     @Test
     void shouldReturn400WhenIntervalJobMissingRequiredFields() throws Exception {
         when(service.create(any()))
-                .thenThrow(new BadRequestException(
-                        ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue"));
+                .thenThrow(
+                        new BadRequestException(ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue"));
 
-        String json =
-                """
+        String json = """
                 {
                   "name": "Job",
                   "pageSize": 100,

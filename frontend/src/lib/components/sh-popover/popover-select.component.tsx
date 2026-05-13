@@ -66,8 +66,7 @@ export const ShPopoverSelect = ({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        style={{ width: triggerRef.current?.offsetWidth }}
-        className="p-1"
+        className="w-[var(--radix-popover-trigger-width)] p-1"
       >
         <ScrollArea className="max-h-[220px]">
         {items.map((item, index) => {

@@ -53,7 +53,7 @@ public class MigrationJob {
     private String cronExpression;
 
     @Convert(converter = JobNodeConverter.class)
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = false)
     private JobNode migration;
 
     private LocalDateTime createdAt;

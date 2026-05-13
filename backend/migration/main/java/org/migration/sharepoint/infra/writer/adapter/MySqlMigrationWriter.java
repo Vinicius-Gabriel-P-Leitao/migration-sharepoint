@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -100,29 +101,36 @@ public class MySqlMigrationWriter implements MigrationWriter {
         validateTableName(targetName);
         validateNoNestedPaths(rows);
 
-        if (rows.isEmpty()) {
-            log.info("Nenhum dado para migrar na tabela '{}'", targetName);
-            return;
-        }
-
         try (Connection conn = connectionPool.getConnection(connectionKey)) {
             String catalog = conn.getCatalog();
 
-            List<String> requestedColumns = new ArrayList<>(rows.getFirst().keySet());
-            createTableIfAbsent(conn, catalog, targetName, requestedColumns, columnTypes);
+            // Synchronize o schema: CRIA a tabela se não existir usando a CONFIGURATION do Job
+            createTableIfAbsent(conn, catalog, targetName, columnTypes);
 
-            List<String> tableColumns = fetchTableColumns(conn, catalog, targetName);
-            List<String> insertColumns =
-                    requestedColumns.stream().filter(tableColumns::contains).collect(Collectors.toList());
-
-            if (insertColumns.isEmpty()) {
-                throw new BadRequestException(
-                        ErrorCode.BAD_REQUEST,
-                        "Nenhuma coluna mapeada corresponde às colunas da tabela '%s'".formatted(targetName));
+            if (rows.isEmpty()) {
+                log.info(
+                        "Job id={}: Nenhum dado para migrar para a tabela '{}'. Estrutura verificada/criada.",
+                        targetName);
+                return;
             }
 
-            replaceAll(conn, targetName, insertColumns, rows, columnTypes);
-            log.info("{} linhas migradas para a tabela '{}' (full replace)", rows.size(), targetName);
+            List<String> tableColumns = fetchTableColumns(conn, catalog, targetName);
+
+            // Filtrate as linhas para conterem arenas o que existe no Banco físico
+            List<Map<String, Object>> validRows = filterValidRows(rows, tableColumns);
+
+            if (validRows.isEmpty()) {
+                log.warn("Nenhuma linha possui campos que correspondam às colunas da tabela '{}'", targetName);
+                return;
+            }
+
+            // Identifica as columns que realignment serão inseridas (interseção dados x Banco)
+            List<String> insertColumns = tableColumns.stream()
+                    .filter(col -> validRows.getFirst().containsKey(col))
+                    .collect(Collectors.toList());
+
+            replaceAll(conn, targetName, insertColumns, validRows, columnTypes);
+            log.info("{} linhas migradas para a tabela '{}' (full replace)", validRows.size(), targetName);
 
         } catch (SQLException sqlException) {
             throw new InfrastructureException(
@@ -132,12 +140,9 @@ public class MySqlMigrationWriter implements MigrationWriter {
     }
 
     private void createTableIfAbsent(
-            Connection conn,
-            String catalog,
-            String tableName,
-            List<String> columns,
-            Map<String, FieldMapping> columnTypes)
+            Connection conn, String catalog, String tableName, Map<String, FieldMapping> columnTypes)
             throws SQLException {
+
         try (PreparedStatement check = conn.prepareStatement(
                 "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?")) {
             check.setString(1, catalog);
@@ -151,28 +156,25 @@ public class MySqlMigrationWriter implements MigrationWriter {
             String quotedTable = stmt.enquoteIdentifier(tableName, true);
 
             StringBuilder columnDefs = new StringBuilder();
-            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-                if (columnIndex > 0) columnDefs.append(", ");
-                String columnName = columns.get(columnIndex);
-                String sqlType = columnTypes.containsKey(columnName)
-                        ? resolveType(columnName, columnTypes.get(columnName))
-                        : "TEXT";
+            List<String> columns = new ArrayList<>(columnTypes.keySet());
+            for (int i = 0; i < columns.size(); i++) {
+                if (i > 0) columnDefs.append(", ");
+                String columnName = columns.get(i);
+                String sqlType = resolveType(columnName, columnTypes.get(columnName));
                 columnDefs
                         .append(stmt.enquoteIdentifier(columnName, true))
                         .append(" ")
                         .append(sqlType);
             }
 
-            stmt.execute("CREATE TABLE IF NOT EXISTS %s (%s)".formatted(quotedTable, columnDefs));
-            log.info("Tabela '{}' criada automaticamente", tableName);
+            stmt.execute("CREATE TABLE %s (%s)".formatted(quotedTable, columnDefs));
+            log.info("Tabela '{}' criada com {} colunas baseada na configuração", tableName, columnTypes.size());
         }
     }
 
     private String resolveType(String column, FieldMapping mapping) {
         if (mapping == null) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST,
-                    "Mapeamento ausente para a coluna '%s': informe 'type' ou 'nativeType'".formatted(column));
+            return "TEXT";
         }
 
         if (mapping.nativeType() != null && !mapping.nativeType().isBlank()) {
@@ -181,18 +183,10 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
         if (mapping.type() != null) {
             String resolved = MYSQL_CANONICAL_MAP.get(mapping.type());
-            if (resolved == null) {
-                throw new BadRequestException(
-                        ErrorCode.BAD_REQUEST,
-                        "Tipo canônico '%s' não mapeado para MySQL na coluna '%s'".formatted(mapping.type(), column));
-            }
-            return resolved;
+            if (resolved != null) return resolved;
         }
 
-        throw new BadRequestException(
-                ErrorCode.BAD_REQUEST,
-                "Coluna '%s' sem tipo definido: informe 'type' (canônico) ou 'nativeType' (nativo MySQL)"
-                        .formatted(column));
+        return "TEXT";
     }
 
     private String validateAndReturnNative(String column, String nativeType) {
@@ -209,15 +203,9 @@ public class MySqlMigrationWriter implements MigrationWriter {
                 .filter(typeDef -> typeDef.name().split("\\(")[0].equalsIgnoreCase(base)
                         && !typeDef.params().isEmpty())
                 .findFirst()
-                .orElseThrow(() -> new BadRequestException(
-                        ErrorCode.BAD_REQUEST,
-                        "Tipo nativo inválido para MySQL na coluna '%s': '%s'. Tipos disponíveis: %s"
-                                .formatted(
-                                        column,
-                                        nativeType,
-                                        MYSQL_TYPE_DEFS.stream()
-                                                .map(NativeTypeDefinition::name)
-                                                .toList())));
+                .orElse(null);
+
+        if (matchedDef == null) return nativeType;
 
         validateParams(column, upper, matchedDef);
         return nativeType;
@@ -226,51 +214,25 @@ public class MySqlMigrationWriter implements MigrationWriter {
     private void validateParams(String column, String upperType, NativeTypeDefinition matchedDef) {
         String innerParams = upperType.contains("(") ? upperType.replaceAll("^[A-Z]+\\((.+)\\)$", "$1") : "";
 
-        if (innerParams.isBlank()) {
-            String expectedRanges = matchedDef.params().stream()
-                    .map(paramSpec -> "%s ∈ [%d, %d]".formatted(paramSpec.label(), paramSpec.min(), paramSpec.max()))
-                    .collect(Collectors.joining(", "));
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST,
-                    "Tipo '%s' na coluna '%s' requer parâmetros: (%s)"
-                            .formatted(matchedDef.name(), column, expectedRanges));
-        }
+        if (innerParams.isBlank()) return;
 
         String[] rawParams = innerParams.split(",");
-        if (rawParams.length != matchedDef.params().size()) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST,
-                    "Tipo '%s' na coluna '%s': esperado %d parâmetro(s), recebido %d"
-                            .formatted(
-                                    matchedDef.name(),
-                                    column,
-                                    matchedDef.params().size(),
-                                    rawParams.length));
-        }
+        if (rawParams.length != matchedDef.params().size()) return;
 
-        for (int paramIndex = 0; paramIndex < matchedDef.params().size(); paramIndex++) {
-            NativeTypeDefinition.ParamSpec paramSpec = matchedDef.params().get(paramIndex);
-            String rawParam = rawParams[paramIndex].trim();
-            int parsedValue;
+        for (int i = 0; i < matchedDef.params().size(); i++) {
+            NativeTypeDefinition.ParamSpec spec = matchedDef.params().get(i);
             try {
-                parsedValue = Integer.parseInt(rawParam);
-            } catch (NumberFormatException numberFormatException) {
-                throw new BadRequestException(
-                        ErrorCode.BAD_REQUEST,
-                        "Parâmetro '%s' do tipo '%s' na coluna '%s' deve ser inteiro, recebido: '%s'"
-                                .formatted(paramSpec.label(), matchedDef.name(), column, rawParam));
-            }
-            if (parsedValue < paramSpec.min() || parsedValue > paramSpec.max()) {
-                throw new BadRequestException(
-                        ErrorCode.BAD_REQUEST,
-                        "Parâmetro '%s' do tipo '%s' na coluna '%s': %d fora do intervalo [%d, %d]"
-                                .formatted(
-                                        paramSpec.label(),
-                                        matchedDef.name(),
-                                        column,
-                                        parsedValue,
-                                        paramSpec.min(),
-                                        paramSpec.max()));
+                int val = Integer.parseInt(rawParams[i].trim());
+                if (val < spec.min() || val > spec.max()) {
+                    log.warn(
+                            "Coluna '{}': Parâmetro {}={} fora do range [{}, {}]. Prosseguindo sob risco do banco.",
+                            column,
+                            spec.label(),
+                            val,
+                            spec.min(),
+                            spec.max());
+                }
+            } catch (Exception ignored) {
             }
         }
     }
@@ -310,9 +272,9 @@ public class MySqlMigrationWriter implements MigrationWriter {
             String quotedTable = helper.enquoteIdentifier(tableName, true);
 
             StringBuilder colListBuilder = new StringBuilder();
-            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-                if (columnIndex > 0) colListBuilder.append(", ");
-                colListBuilder.append(helper.enquoteIdentifier(columns.get(columnIndex), true));
+            for (int i = 0; i < columns.size(); i++) {
+                if (i > 0) colListBuilder.append(", ");
+                colListBuilder.append(helper.enquoteIdentifier(columns.get(i), true));
             }
             String colList = colListBuilder.toString();
 
@@ -322,10 +284,10 @@ public class MySqlMigrationWriter implements MigrationWriter {
             try (PreparedStatement insertStmt = conn.prepareStatement(sql)) {
                 int batchCount = 0;
                 for (Map<String, Object> row : rows) {
-                    for (int columnPosition = 0; columnPosition < columns.size(); columnPosition++) {
-                        String columnName = columns.get(columnPosition);
+                    for (int i = 0; i < columns.size(); i++) {
+                        String columnName = columns.get(i);
                         Object value = convertValue(row.get(columnName), columnTypes.get(columnName), columnName);
-                        insertStmt.setObject(columnPosition + 1, value);
+                        insertStmt.setObject(i + 1, value);
                     }
 
                     insertStmt.addBatch();
@@ -334,7 +296,6 @@ public class MySqlMigrationWriter implements MigrationWriter {
                     if (batchCount % batchSize == 0) {
                         insertStmt.executeBatch();
                         insertStmt.clearBatch();
-                        log.debug("Batch parcial executado: {} linhas", batchCount);
                     }
                 }
 
@@ -344,17 +305,12 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
             } catch (SQLIntegrityConstraintViolationException constraintViolation) {
                 if (constraintViolation.getErrorCode() == MYSQL_ERR_NULL_VIOLATION) {
-                    log.warn("Violação NOT NULL na tabela '{}': {}", tableName, constraintViolation.getMessage());
                     throw new ConflictException(
                             ErrorCode.MIGRATION_NULL_VIOLATION,
-                            "Campo obrigatório recebeu valor nulo do SharePoint na tabela '%s': %s"
-                                    .formatted(tableName, constraintViolation.getMessage()));
+                            "Campo obrigatório recebeu valor nulo na tabela '%s'".formatted(tableName));
                 }
-                log.warn("Conflito de integridade na tabela '{}': {}", tableName, constraintViolation.getMessage());
                 throw new ConflictException(
-                        ErrorCode.MIGRATION_CONFLICT,
-                        "Conflito de integridade ao inserir dados na tabela '%s': %s"
-                                .formatted(tableName, constraintViolation.getMessage()));
+                        ErrorCode.MIGRATION_CONFLICT, "Conflito de integridade na tabela '%s'".formatted(tableName));
             }
         }
     }
@@ -377,10 +333,6 @@ public class MySqlMigrationWriter implements MigrationWriter {
             try {
                 return LocalDateTime.ofInstant(Instant.parse(raw), ZoneOffset.UTC);
             } catch (Exception parseException) {
-                log.warn(
-                        "Falha ao converter coluna '{}' para DATETIME — valor='{}' não é ISO 8601 válido, passando raw",
-                        column,
-                        raw);
                 return value;
             }
         }
@@ -389,14 +341,25 @@ public class MySqlMigrationWriter implements MigrationWriter {
                 return LocalDateTime.ofInstant(Instant.parse(raw), ZoneOffset.UTC)
                         .toLocalDate();
             } catch (Exception parseException) {
-                log.warn(
-                        "Falha ao converter coluna '{}' para DATE — valor='{}' não é ISO 8601 válido, passando raw",
-                        column,
-                        raw);
                 return value;
             }
         }
         return value;
+    }
+
+    private List<Map<String, Object>> filterValidRows(List<Map<String, Object>> rows, List<String> tableColumns) {
+        return rows.stream()
+                .map(row -> {
+                    Map<String, Object> filtered = new LinkedHashMap<>();
+                    row.forEach((key, value) -> {
+                        if (tableColumns.contains(key)) {
+                            filtered.put(key, value);
+                        }
+                    });
+                    return filtered;
+                })
+                .filter(map -> !map.isEmpty())
+                .collect(Collectors.toList());
     }
 
     private List<String> fetchTableColumns(Connection conn, String catalog, String tableName) throws SQLException {
@@ -426,9 +389,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
                 .findFirst()
                 .ifPresent(key -> {
                     throw new BadRequestException(
-                            ErrorCode.BAD_REQUEST,
-                            "Nome de coluna inválido para SQL: '%s' — dot-notation é exclusivo do adapter MongoDB"
-                                    .formatted(key));
+                            ErrorCode.BAD_REQUEST, "Nome de coluna inválido para SQL: '%s'".formatted(key));
                 });
     }
 }

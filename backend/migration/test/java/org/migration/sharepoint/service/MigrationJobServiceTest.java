@@ -54,8 +54,7 @@ class MigrationJobServiceTest {
     private static final Map<String, FieldMapping> FIELD_MAPPINGS =
             Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null));
 
-    private static final JobNode ROOT_NODE =
-            new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null);
+    private static final JobNode ROOT_NODE = new JobNode("site-123", "list-456", "test_table", FIELD_MAPPINGS, null);
 
     private MigrationJob buildJob(Long id, ScheduleType scheduleType) {
         return MigrationJob.builder()
@@ -141,7 +140,14 @@ class MigrationJobServiceTest {
         when(jobRepository.save(any())).thenReturn(saved);
 
         JobRequest request = new JobRequest(
-                "Test Job", 100, TargetDb.MYSQL, "MYSQL_PROD", ScheduleType.INTERVAL, 30L, IntervalUnit.MINUTES, null,
+                "Test Job",
+                100,
+                TargetDb.MYSQL,
+                "MYSQL_PROD",
+                ScheduleType.INTERVAL,
+                30L,
+                IntervalUnit.MINUTES,
+                null,
                 ROOT_NODE);
 
         JobResponse response = service.create(request);
@@ -153,7 +159,14 @@ class MigrationJobServiceTest {
     @Test
     void shouldRejectIntervalJobMissingIntervalValue() {
         JobRequest request = new JobRequest(
-                "Test Job", 100, TargetDb.MYSQL, "MYSQL_PROD", ScheduleType.INTERVAL, null, IntervalUnit.MINUTES, null,
+                "Test Job",
+                100,
+                TargetDb.MYSQL,
+                "MYSQL_PROD",
+                ScheduleType.INTERVAL,
+                null,
+                IntervalUnit.MINUTES,
+                null,
                 ROOT_NODE);
 
         assertThatThrownBy(() -> service.create(request))

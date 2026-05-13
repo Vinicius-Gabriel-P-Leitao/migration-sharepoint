@@ -5,9 +5,9 @@ import {
   ShSelectItem,
 } from "@lib/components/sh-select/select.component";
 import { ShButton } from "@lib/components/sh-button/button.component";
-import { Badge } from "@lib/components/ui/badge";
-import { Skeleton } from "@lib/components/ui/skeleton";
-import { Card, CardContent } from "@lib/components/ui/card";
+import { ShBadge } from "@lib/components/sh-badge/badge.component";
+import { ShSkeleton } from "@lib/components/sh-skeleton/skeleton.component";
+import { ShCard, ShCardContent } from "@lib/components/sh-card/card.component";
 import {
   CheckCircle2,
   XCircle,
@@ -108,61 +108,61 @@ export const LogsRoute = () => {
         </div>
         {selectedJob && (
           <span className="text-xs text-muted-foreground">
-            {selectedJob.targetDb} → {selectedJob.tableName}
+            {selectedJob.targetDb} → {selectedJob.migration?.tableName || 'root'}
           </span>
         )}
       </div>
 
       {/* No job selected */}
       {!selectedJobId && (
-        <Card className="border-dashed">
-          <CardContent className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+        <ShCard className="border-dashed">
+          <ShCardContent className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <ScrollText className="w-12 h-12 opacity-20" />
             <p className="text-sm">
               Selecione um job acima para ver o histórico de execuções.
             </p>
-          </CardContent>
-        </Card>
+          </ShCardContent>
+        </ShCard>
       )}
 
       {/* Loading logs */}
       {selectedJobId && loadingLogs && (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="py-4 flex gap-4 items-start">
-                <Skeleton className="w-5 h-5 rounded-full shrink-0" />
+            <ShCard key={i}>
+              <ShCardContent className="py-4 flex gap-4 items-start">
+                <ShSkeleton className="w-5 h-5 rounded-full shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-48" />
-                  <Skeleton className="h-3 w-32" />
+                  <ShSkeleton className="h-4 w-24" />
+                  <ShSkeleton className="h-3 w-48" />
+                  <ShSkeleton className="h-3 w-32" />
                 </div>
-              </CardContent>
-            </Card>
+              </ShCardContent>
+            </ShCard>
           ))}
         </div>
       )}
 
       {/* Error */}
       {selectedJobId && isError && (
-        <Card className="border-destructive/30">
-          <CardContent className="py-10 text-center text-sm text-destructive">
+        <ShCard className="border-destructive/30">
+          <ShCardContent className="py-10 text-center text-sm text-destructive">
             Erro ao carregar logs. Verifique se o servidor está rodando.
-          </CardContent>
-        </Card>
+          </ShCardContent>
+        </ShCard>
       )}
 
       {/* Empty logs */}
       {selectedJobId && !loadingLogs && !isError && logs?.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-14 flex flex-col items-center gap-3 text-muted-foreground">
+        <ShCard className="border-dashed">
+          <ShCardContent className="py-14 flex flex-col items-center gap-3 text-muted-foreground">
             <ScrollText className="w-10 h-10 opacity-20" />
             <p className="text-sm">
               Nenhuma execução registrada para este job.
             </p>
             <p className="text-xs">Execute o job para ver o histórico aqui.</p>
-          </CardContent>
-        </Card>
+          </ShCardContent>
+        </ShCard>
       )}
 
       {/* Log entries */}
@@ -172,15 +172,15 @@ export const LogsRoute = () => {
             {logs.length} execução(ões) encontrada(s)
           </p>
           {logs.map((log) => (
-            <Card key={log.id} className="overflow-hidden">
-              <CardContent className="py-0">
+            <ShCard key={log.id} className="overflow-hidden">
+              <ShCardContent className="py-0">
                 <div className="flex gap-4 py-4">
                   <StatusIcon status={log.status} />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={badgeVariant(log.status)}>
+                      <ShBadge variant={badgeVariant(log.status)}>
                         {log.status}
-                      </Badge>
+                      </ShBadge>
                       <span className="text-xs font-medium text-muted-foreground">
                         {formatDuration(log.startedAt, log.finishedAt)}
                       </span>
@@ -203,8 +203,8 @@ export const LogsRoute = () => {
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </ShCardContent>
+            </ShCard>
           ))}
         </div>
       )}

@@ -10,25 +10,32 @@ export interface FieldMapping {
   nativeType: string;
 }
 
-export interface JobRequest {
-  name: string;
+export interface JobNode {
+  sharepointUrl?: string;
   siteId: string;
   listId: string;
-  pageSize: number;
+  tableName: string;
   fieldMappings: Record<string, FieldMapping>;
+  children: JobNode[];
+}
+
+export interface JobRequest {
+  name: string;
+  pageSize: number;
   targetDb: TargetDb;
   connectionKey: string;
-  tableName: string;
   scheduleType: ScheduleType;
   intervalValue?: number;
   intervalUnit?: IntervalUnit;
-  cronExpression?: string; 
+  cronExpression?: string;
+  migration: JobNode;
 }
 
-export interface JobResponse extends JobRequest {
+export interface JobResponse extends Omit<JobRequest, 'migration'> {
   id: number;
   createdAt: string;
   updatedAt: string;
+  migration: JobNode;
 }
 
 export interface LogResponse {

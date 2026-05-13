@@ -44,6 +44,7 @@ export const ShDialogContent = ({
 
   return (
     <DialogContent
+      aria-describedby={props['aria-describedby'] || undefined}
       style={{
         maxWidth: maxWidth ?? sizeStyle.maxWidth,
         maxHeight: maxHeight ?? undefined,

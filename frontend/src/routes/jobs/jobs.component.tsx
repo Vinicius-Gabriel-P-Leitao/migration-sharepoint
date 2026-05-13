@@ -2,27 +2,27 @@ import { useState } from 'react';
 import { useJobs, useRunJob, useDeleteJob } from '@lib/hooks/jobs.hook';
 import { ShButton } from '@lib/components/sh-button/button.component';
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@lib/components/ui/card';
+  ShCard,
+  ShCardContent,
+  ShCardFooter,
+  ShCardHeader,
+  ShCardTitle,
+  ShCardDescription,
+} from '@lib/components/sh-card/card.component';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@lib/components/ui/alert-dialog';
-import { Skeleton } from '@lib/components/ui/skeleton';
-import { Badge } from '@lib/components/ui/badge';
-import { Separator } from '@lib/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@lib/components/ui/tooltip';
+  ShAlertDialog,
+  ShAlertDialogAction,
+  ShAlertDialogCancel,
+  ShAlertDialogContent,
+  ShAlertDialogDescription,
+  ShAlertDialogFooter,
+  ShAlertDialogHeader,
+  ShAlertDialogTitle,
+} from '@lib/components/sh-alert-dialog/alert-dialog.component';
+import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
+import { ShBadge } from '@lib/components/sh-badge/badge.component';
+import { ShSeparator } from '@lib/components/sh-separator/separator.component';
+import { ShTooltip, ShTooltipContent, ShTooltipTrigger } from '@lib/components/sh-tooltip/tooltip.component';
 import { CreateJobDialog } from './components/create-job.component';
 import { EditJobSheet } from './components/edit-job.component';
 import type { JobResponse, ScheduleType } from './jobs.type';
@@ -95,8 +95,8 @@ export const JobsRoute = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <ShTooltip>
+              <ShTooltipTrigger asChild>
                 <ShButton
                   variant="outline"
                   size="icon"
@@ -105,9 +105,9 @@ export const JobsRoute = () => {
                 >
                   <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                 </ShButton>
-              </TooltipTrigger>
-              <TooltipContent>Atualizar</TooltipContent>
-            </Tooltip>
+              </ShTooltipTrigger>
+              <ShTooltipContent>Atualizar</ShTooltipContent>
+            </ShTooltip>
             <ShButton onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Novo Job
@@ -119,38 +119,38 @@ export const JobsRoute = () => {
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-4 w-28 mt-1" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </CardContent>
-                <CardFooter className="border-t pt-3 gap-2">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-8 ml-auto" />
-                </CardFooter>
-              </Card>
+              <ShCard key={i}>
+                <ShCardHeader>
+                  <ShSkeleton className="h-5 w-40" />
+                  <ShSkeleton className="h-4 w-28 mt-1" />
+                </ShCardHeader>
+                <ShCardContent className="space-y-3">
+                  <ShSkeleton className="h-4 w-full" />
+                  <ShSkeleton className="h-4 w-3/4" />
+                </ShCardContent>
+                <ShCardFooter className="border-t pt-3 gap-2">
+                  <ShSkeleton className="h-8 w-20" />
+                  <ShSkeleton className="h-8 w-20" />
+                  <ShSkeleton className="h-8 w-8 ml-auto" />
+                </ShCardFooter>
+              </ShCard>
             ))}
           </div>
         )}
 
         {/* Error */}
         {isError && (
-          <Card className="border-destructive/30">
-            <CardContent className="py-12 text-center text-sm text-destructive">
+          <ShCard className="border-destructive/30">
+            <ShCardContent className="py-12 text-center text-sm text-destructive">
               Erro ao carregar jobs. Verifique se o servidor está rodando.
-            </CardContent>
-          </Card>
+            </ShCardContent>
+          </ShCard>
         )}
 
         {/* Empty state */}
         {!isLoading && !isError && jobs?.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-16 flex flex-col items-center gap-4 text-muted-foreground">
+          <ShCard className="border-dashed">
+            <ShCardContent className="py-16 flex flex-col items-center gap-4 text-muted-foreground">
               <BriefcaseBusiness className="w-12 h-12 opacity-20" />
               <div className="text-center">
                 <p className="font-medium text-foreground">Nenhum job cadastrado</p>
@@ -160,8 +160,8 @@ export const JobsRoute = () => {
                 <Plus className="w-4 h-4 mr-2" />
                 Criar primeiro job
               </ShButton>
-            </CardContent>
-          </Card>
+            </ShCardContent>
+          </ShCard>
         )}
 
         {/* Job cards grid */}
@@ -169,24 +169,24 @@ export const JobsRoute = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {jobs.map((job) => {
               const schedule = scheduleMeta[job.scheduleType as ScheduleType];
-              const fieldCount = Object.keys(job.fieldMappings).length;
+              const fieldCount = job.migration ? Object.keys(job.migration.fieldMappings).length : 0;
               return (
-                <Card key={job.id} className="flex flex-col">
-                  <CardHeader className="pb-3">
+                <ShCard key={job.id} className="flex flex-col">
+                  <ShCardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base leading-snug">{job.name}</CardTitle>
-                      <Badge variant={schedule.variant} className="shrink-0">
+                      <ShCardTitle className="text-base leading-snug">{job.name}</ShCardTitle>
+                      <ShBadge variant={schedule.variant} className="shrink-0">
                         {schedule.label}
-                      </Badge>
+                      </ShBadge>
                     </div>
-                    <CardDescription className="flex items-center gap-1.5 mt-1">
+                    <ShCardDescription className="flex items-center gap-1.5 mt-1">
                       <Database className="w-3.5 h-3.5 shrink-0" />
-                      {job.targetDb} → {job.tableName}
-                    </CardDescription>
-                  </CardHeader>
+                      {job.targetDb} → {job.migration?.tableName || 'root'}
+                    </ShCardDescription>
+                  </ShCardHeader>
 
-                  <CardContent className="pb-3 space-y-2 flex-1">
-                    <Separator />
+                  <ShCardContent className="pb-3 space-y-2 flex-1">
+                    <ShSeparator />
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1.5">
                         <CalendarClock className="w-3.5 h-3.5" />
@@ -203,11 +203,11 @@ export const JobsRoute = () => {
                     <div className="text-[11px] text-muted-foreground">
                       Criado em {formatDate(job.createdAt)}
                     </div>
-                  </CardContent>
+                  </ShCardContent>
 
-                  <CardFooter className="border-t pt-3 gap-1.5 flex-wrap">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                  <ShCardFooter className="border-t pt-3 gap-1.5 flex-wrap">
+                    <ShTooltip>
+                      <ShTooltipTrigger asChild>
                         <ShButton
                           size="sm"
                           variant="outline"
@@ -218,12 +218,12 @@ export const JobsRoute = () => {
                           <Play className="w-3.5 h-3.5 text-green-500" />
                           Rodar
                         </ShButton>
-                      </TooltipTrigger>
-                      <TooltipContent>Disparar execução agora</TooltipContent>
-                    </Tooltip>
+                      </ShTooltipTrigger>
+                      <ShTooltipContent>Disparar execução agora</ShTooltipContent>
+                    </ShTooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <ShTooltip>
+                      <ShTooltipTrigger asChild>
                         <ShButton
                           size="sm"
                           variant="outline"
@@ -233,12 +233,12 @@ export const JobsRoute = () => {
                           <Pencil className="w-3.5 h-3.5" />
                           Editar
                         </ShButton>
-                      </TooltipTrigger>
-                      <TooltipContent>Editar configurações</TooltipContent>
-                    </Tooltip>
+                      </ShTooltipTrigger>
+                      <ShTooltipContent>Editar configurações</ShTooltipContent>
+                    </ShTooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <ShTooltip>
+                      <ShTooltipTrigger asChild>
                         <ShButton
                           size="sm"
                           variant="outline"
@@ -248,12 +248,12 @@ export const JobsRoute = () => {
                           <ScrollText className="w-3.5 h-3.5" />
                           Logs
                         </ShButton>
-                      </TooltipTrigger>
-                      <TooltipContent>Ver histórico de execuções</TooltipContent>
-                    </Tooltip>
+                      </ShTooltipTrigger>
+                      <ShTooltipContent>Ver histórico de execuções</ShTooltipContent>
+                    </ShTooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <ShTooltip>
+                      <ShTooltipTrigger asChild>
                         <ShButton
                           size="icon-sm"
                           variant="ghost"
@@ -263,11 +263,11 @@ export const JobsRoute = () => {
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </ShButton>
-                      </TooltipTrigger>
-                      <TooltipContent>Remover job</TooltipContent>
-                    </Tooltip>
-                  </CardFooter>
-                </Card>
+                      </ShTooltipTrigger>
+                      <ShTooltipContent>Remover job</ShTooltipContent>
+                    </ShTooltip>
+                  </ShCardFooter>
+                </ShCard>
               );
             })}
           </div>
@@ -293,26 +293,26 @@ export const JobsRoute = () => {
       />
 
       {/* Delete confirmation */}
-      <AlertDialog
+      <ShAlertDialog
         open={jobToDelete !== null}
         onOpenChange={(open) => !open && setJobToDelete(null)}
       >
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover job?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <ShAlertDialogContent size="sm">
+          <ShAlertDialogHeader>
+            <ShAlertDialogTitle>Remover job?</ShAlertDialogTitle>
+            <ShAlertDialogDescription>
               Esta ação não pode ser desfeita. O job será removido permanentemente junto com seu
               agendamento.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+            </ShAlertDialogDescription>
+          </ShAlertDialogHeader>
+          <ShAlertDialogFooter>
+            <ShAlertDialogCancel>Cancelar</ShAlertDialogCancel>
+            <ShAlertDialogAction variant="destructive" onClick={handleDelete}>
               Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ShAlertDialogAction>
+          </ShAlertDialogFooter>
+        </ShAlertDialogContent>
+      </ShAlertDialog>
     </>
   );
 };

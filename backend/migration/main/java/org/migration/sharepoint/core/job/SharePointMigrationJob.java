@@ -8,10 +8,7 @@
 package org.migration.sharepoint.core.job;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -195,19 +192,26 @@ public class SharePointMigrationJob implements Job {
 
     private List<Map<String, Object>> applyFieldMapping(
             List<Map<String, Object>> rows, Map<String, FieldMapping> fieldMappings, Long jobId) {
-        List<Map<String, Object>> mapped = rows.stream()
+
+        // Normalizamos os campos configurados para lowercase para permitir busca O(1) insensível a caso.
+        Map<String, FieldMapping> normalizedMappings = new HashMap<>();
+        fieldMappings.forEach((fieldName, mapping) -> normalizedMappings.put(fieldName.toLowerCase(), mapping));
+
+        List<Map<String, Object>> mappedRows = rows.stream()
                 .map(row -> {
-                    Map<String, Object> out = new LinkedHashMap<>();
-                    fieldMappings.forEach((spField, mapping) -> {
-                        if (row.containsKey(spField)) {
-                            out.put(mapping.column(), row.get(spField));
+                    Map<String, Object> outputRow = new LinkedHashMap<>();
+                    // Iteramos sobre os dados reais retornados e buscamos no nosso mapa de configuração normalizado
+                    row.forEach((actualKey, value) -> {
+                        FieldMapping mapping = normalizedMappings.get(actualKey.toLowerCase());
+                        if (mapping != null) {
+                            outputRow.put(mapping.column(), value);
                         }
                     });
-                    return out;
+                    return outputRow;
                 })
-                .toList();
+                .collect(Collectors.toList());
 
-        if (!mapped.isEmpty() && mapped.stream().allMatch(Map::isEmpty)) {
+        if (!mappedRows.isEmpty() && mappedRows.stream().allMatch(Map::isEmpty)) {
             List<String> expectedFields = List.copyOf(fieldMappings.keySet());
             log.warn(
                     "Job id={}: nenhum campo do fieldMappings encontrado nos dados do SharePoint. Campos esperados: {}",
@@ -221,6 +225,6 @@ public class SharePointMigrationJob implements Job {
                                     .formatted(expectedFields));
         }
 
-        return mapped;
+        return mappedRows;
     }
 }

@@ -1,14 +1,14 @@
 import { useJobLogs } from '@lib/hooks/jobs.hook';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetBody,
-  SheetTitle,
-  SheetDescription,
-} from '@lib/components/ui/sheet';
-import { Badge } from '@lib/components/ui/badge';
-import { Skeleton } from '@lib/components/ui/skeleton';
+  ShSheet,
+  ShSheetContent,
+  ShSheetHeader,
+  ShSheetBody,
+  ShSheetTitle,
+  ShSheetDescription,
+} from '@lib/components/sh-sheet/sheet.component';
+import { ShBadge } from '@lib/components/sh-badge/badge.component';
+import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
 import { ShButton } from '@lib/components/sh-button/button.component';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, ScrollText } from 'lucide-react';
 import type { LogResponse } from '../jobs.type';
@@ -57,16 +57,16 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
   const { data: logs, isLoading, isError, refetch, isFetching } = useJobLogs(jobId ?? 0);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-lg w-full flex flex-col p-0">
-        <SheetHeader>
+    <ShSheet open={open} onOpenChange={onOpenChange}>
+      <ShSheetContent side="right" className="sm:max-w-lg w-full flex flex-col p-0">
+        <ShSheetHeader>
           <div className="flex items-center justify-between pr-8">
             <div>
-              <SheetTitle className="flex items-center gap-2">
+              <ShSheetTitle className="flex items-center gap-2">
                 <ScrollText className="w-4 h-4" />
                 Histórico de Execuções
-              </SheetTitle>
-              <SheetDescription className="truncate mt-0.5">{jobName}</SheetDescription>
+              </ShSheetTitle>
+              <ShSheetDescription className="truncate mt-0.5">{jobName}</ShSheetDescription>
             </div>
             <ShButton
               variant="ghost"
@@ -77,18 +77,18 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
               <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
             </ShButton>
           </div>
-        </SheetHeader>
+        </ShSheetHeader>
 
-        <SheetBody className="p-0 overflow-y-auto">
+        <ShSheetBody className="p-0 overflow-y-auto">
           {isLoading ? (
             <div className="p-6 space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex gap-3">
-                  <Skeleton className="w-5 h-5 rounded-full shrink-0 mt-0.5" />
+                  <ShSkeleton className="w-5 h-5 rounded-full shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-40" />
-                    <Skeleton className="h-3 w-20" />
+                    <ShSkeleton className="h-4 w-24" />
+                    <ShSkeleton className="h-3 w-40" />
+                    <ShSkeleton className="h-3 w-20" />
                   </div>
                 </div>
               ))}
@@ -111,9 +111,9 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
                     <StatusIcon status={log.status} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={statusBadgeVariant(log.status)} className="text-xs">
+                        <ShBadge variant={statusBadgeVariant(log.status)} className="text-xs">
                           {log.status}
-                        </Badge>
+                        </ShBadge>
                         <span className="text-xs text-muted-foreground">
                           {formatDuration(log.startedAt, log.finishedAt)}
                         </span>
@@ -139,8 +139,8 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
               ))}
             </div>
           )}
-        </SheetBody>
-      </SheetContent>
-    </Sheet>
+        </ShSheetBody>
+      </ShSheetContent>
+    </ShSheet>
   );
 };

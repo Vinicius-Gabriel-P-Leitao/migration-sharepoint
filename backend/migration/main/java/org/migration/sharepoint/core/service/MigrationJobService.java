@@ -91,18 +91,15 @@ public class MigrationJobService {
         switch (request.scheduleType()) {
             case INTERVAL -> {
                 if (request.intervalValue() == null) {
-                    throw new BadRequestException(
-                            ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue");
+                    throw new BadRequestException(ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalValue");
                 }
                 if (request.intervalUnit() == null) {
-                    throw new BadRequestException(
-                            ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalUnit");
+                    throw new BadRequestException(ErrorCode.BAD_REQUEST, "scheduleType INTERVAL requer intervalUnit");
                 }
             }
             case CRON -> {
                 if (request.cronExpression() == null || request.cronExpression().isBlank()) {
-                    throw new BadRequestException(
-                            ErrorCode.BAD_REQUEST, "scheduleType CRON requer cronExpression");
+                    throw new BadRequestException(ErrorCode.BAD_REQUEST, "scheduleType CRON requer cronExpression");
                 }
             }
             case MANUAL, CONTINUOUS -> {}
@@ -111,26 +108,20 @@ public class MigrationJobService {
 
     private void validateNode(JobNode node, String path) {
         if (node.siteId() == null || node.siteId().isBlank()) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST, "%s.siteId não pode ser vazio".formatted(path));
+            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.siteId não pode ser vazio".formatted(path));
         }
         if (node.listId() == null || node.listId().isBlank()) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST, "%s.listId não pode ser vazio".formatted(path));
+            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.listId não pode ser vazio".formatted(path));
         }
         if (node.tableName() == null || node.tableName().isBlank()) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST, "%s.tableName não pode ser vazio".formatted(path));
+            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.tableName não pode ser vazio".formatted(path));
         }
         if (node.fieldMappings() == null || node.fieldMappings().isEmpty()) {
-            throw new BadRequestException(
-                    ErrorCode.BAD_REQUEST, "%s.fieldMappings não pode ser vazio".formatted(path));
+            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.fieldMappings não pode ser vazio".formatted(path));
         }
         if (node.children() != null) {
             for (int nodeIndex = 0; nodeIndex < node.children().size(); nodeIndex++) {
-                validateNode(
-                        node.children().get(nodeIndex),
-                        "%s.children[%d]".formatted(path, nodeIndex));
+                validateNode(node.children().get(nodeIndex), "%s.children[%d]".formatted(path, nodeIndex));
             }
         }
     }
@@ -139,8 +130,7 @@ public class MigrationJobService {
         return jobRepository
                 .findById(id)
                 .orElseThrow(
-                        () -> new NotFoundException(
-                                ErrorCode.JOB_NOT_FOUND, "Job id=%d não encontrado".formatted(id)));
+                        () -> new NotFoundException(ErrorCode.JOB_NOT_FOUND, "Job id=%d não encontrado".formatted(id)));
     }
 
     private MigrationJob fromRequest(JobRequest request) {
