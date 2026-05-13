@@ -5,7 +5,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from '@/lib/components/ui/card';
+} from '@lib/components/ui/card';
 
 export const ShCard = Card;
 export const ShCardHeader = CardHeader;

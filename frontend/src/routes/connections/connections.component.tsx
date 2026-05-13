@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ShButton } from '@/lib/components/sh-button/button.component';
+import { ShButton } from '@lib/components/sh-button/button.component';
 import {
   Card,
   CardContent,
@@ -10,14 +10,14 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/lib/components/ui/card';
+} from '@lib/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/lib/components/ui/dialog';
+} from '@lib/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,13 +27,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/lib/components/ui/alert-dialog';
-import { Skeleton } from '@/lib/components/ui/skeleton';
-import { Input } from '@/lib/components/ui/input';
-import { Label } from '@/lib/components/ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/components/ui/tooltip';
-import { connectionsService, type ConnectionSummary } from '../services/connections.service';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+} from '@lib/components/ui/alert-dialog';
+import { Skeleton } from '@lib/components/ui/skeleton';
+import { Input } from '@lib/components/ui/input';
+import { Label } from '@lib/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@lib/components/ui/tooltip';
+import { useConnections, useCreateConnection, useDeleteConnection } from '@lib/hooks/connections.hook';
+import type { ConnectionSummary } from '@lib/services/connections.service';
 import { Plus, Trash2, Database, Loader2, Key } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,32 +51,11 @@ type ConnectionFormData = z.infer<typeof connectionSchema>;
 export const ConnectionsRoute = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [keyToDelete, setKeyToDelete] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
-  const { data: connections, isLoading } = useQuery({
-    queryKey: ['connections'],
-    queryFn: connectionsService.getAll,
-  });
+  const { data: connections, isLoading } = useConnections();
 
-  const createMutation = useMutation({
-    mutationFn: connectionsService.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] });
-      toast.success('Conexão registrada com sucesso');
-      setAddOpen(false);
-      reset();
-    },
-    onError: () => toast.error('Erro ao registrar conexão'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: connectionsService.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connections'] });
-      toast.success('Conexão removida');
-    },
-    onError: () => toast.error('Erro ao remover conexão'),
-  });
+  const createMutation = useCreateConnection();
+  const deleteMutation = useDeleteConnection();
 
   const {
     register,
@@ -87,10 +66,25 @@ export const ConnectionsRoute = () => {
     resolver: zodResolver(connectionSchema),
   });
 
-  const onSubmit = (data: ConnectionFormData) => createMutation.mutate(data);
+  const onSubmit = (data: ConnectionFormData) =>
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        toast.success('Conexão registrada com sucesso');
+        setAddOpen(false);
+        reset();
+      },
+      onError: () => toast.error('Erro ao registrar conexão'),
+    });
 
   const handleDelete = () => {
-    if (keyToDelete) deleteMutation.mutate(keyToDelete);
+    if (keyToDelete) {
+      deleteMutation.mutate(keyToDelete, {
+        onSuccess: () => {
+          toast.success('Conexão removida');
+        },
+        onError: () => toast.error('Erro ao remover conexão'),
+      });
+    }
     setKeyToDelete(null);
   };
 

@@ -22,7 +22,7 @@ export interface JobRequest {
   scheduleType: ScheduleType;
   intervalValue?: number;
   intervalUnit?: IntervalUnit;
-  cronExpression?: string;
+  cronExpression?: string; 
 }
 
 export interface JobResponse extends JobRequest {

@@ -7,7 +7,7 @@ import {
   TableRow,
   TableCell,
   TableCaption,
-} from '@/lib/components/ui/table';
+} from '@lib/components/ui/table';
 
 export const ShTable = Table;
 export const ShTableHeader = TableHeader;

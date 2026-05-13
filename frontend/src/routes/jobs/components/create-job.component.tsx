@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useCreateJob } from '@/lib/hooks/jobs.hook';
-import { sharepointService, type SharePointResolveResponse } from '@/routes/sharepoint/services/sharepoint.service';
-import { connectionsService } from '@/routes/connections/services/connections.service';
-import { adaptersService } from '@/routes/adapters/services/adapters.service';
-import type { CanonicalType, IntervalUnit, JobRequest, ScheduleType, TargetDb } from '@/routes/jobs/jobs.type';
+import { useCreateJob } from '@lib/hooks/jobs.hook';
+import { useConnections } from '@lib/hooks/connections.hook';
+import { useAdapterTypes } from '@lib/hooks/adapters.hook';
+import { useResolveSharePoint } from '@lib/hooks/sharepoint.hook';
+import type { SharePointResolveResponse } from '@lib/services/sharepoint.service';
+import type { CanonicalType, IntervalUnit, JobRequest, ScheduleType, TargetDb } from '../jobs.type';
 import {
   Dialog,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/lib/components/ui/dialog';
-import { ShDialogContent } from '@/lib/components/sh-dialog/dialog.component';
-import { Input } from '@/lib/components/ui/input';
-import { Label } from '@/lib/components/ui/label';
-import { ShSelect, ShSelectItem, ShSelectSeparator } from '@/lib/components/sh-select/select.component';
-import { ShButton } from '@/lib/components/sh-button/button.component';
+} from '@lib/components/ui/dialog';
+import { ShDialogContent } from '@lib/components/sh-dialog/dialog.component';
+import { Input } from '@lib/components/ui/input';
+import { Label } from '@lib/components/ui/label';
+import { ShSelect, ShSelectItem, ShSelectSeparator } from '@lib/components/sh-select/select.component';
+import { ShButton } from '@lib/components/sh-button/button.component';
 import { Loader2, ArrowLeft, Check, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils/cn.util';
+import { cn } from '@lib/utils/cn.util';
 
 const NONE_NATIVE = '__none__';
 const TARGET_DBS: TargetDb[] = ['MYSQL', 'POSTGRESQL', 'MONGODB'];
@@ -73,17 +73,9 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
 
   const createJob = useCreateJob();
 
-  const { data: connections, isLoading: loadingConnections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: connectionsService.getAll,
-    enabled: step === 2,
-  });
+  const { data: connections, isLoading: loadingConnections } = useConnections(step === 2);
 
-  const { data: adapterTypes, isLoading: loadingTypes } = useQuery({
-    queryKey: ['adapter-types', config.targetDb],
-    queryFn: () => adaptersService.getTypes(config.targetDb),
-    enabled: step === 2,
-  });
+  const { data: adapterTypes, isLoading: loadingTypes } = useAdapterTypes(config.targetDb, step === 2);
 
   const canonicalTypes: CanonicalType[] = adapterTypes
     ? (Object.keys(adapterTypes.canonical) as CanonicalType[])
@@ -95,9 +87,11 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
     }
   }, [connections]);
 
-  const resolveMutation = useMutation({
-    mutationFn: sharepointService.resolve,
-    onSuccess: (data) => {
+  const resolveMutation = useResolveSharePoint();
+
+  useEffect(() => {
+    if (resolveMutation.isSuccess && resolveMutation.data) {
+      const data = resolveMutation.data;
       setResolved(data);
       setMappings(
         data.columns.map((col) => ({
@@ -108,9 +102,8 @@ export const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) =>
           included: true,
         }))
       );
-    },
-    onError: () => toast.error('Erro ao resolver URL do SharePoint'),
-  });
+    }
+  }, [resolveMutation.isSuccess, resolveMutation.data]);
 
   const handleTargetDbChange = (db: TargetDb) => {
     setConfig((p) => ({ ...p, targetDb: db, connectionKey: '' }));

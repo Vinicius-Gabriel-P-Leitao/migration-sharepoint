@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { Popover, PopoverTrigger, PopoverContent } from '@/lib/components/ui/popover';
-import { ScrollArea } from '@/lib/components/ui/scroll-area';
-import { cn } from '@/lib/utils/cn.util';
+import { Popover, PopoverTrigger, PopoverContent } from '@lib/components/ui/popover';
+import { ScrollArea } from '@lib/components/ui/scroll-area';
+import { cn } from '@lib/utils/cn.util';
 
 export interface ShPopoverSelectItem {
   value: string;

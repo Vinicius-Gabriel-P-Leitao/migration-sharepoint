@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button } from '@/lib/components/ui/button';
+import { Button } from '@lib/components/ui/button';
 
 export interface ShButtonProps extends React.ComponentProps<typeof Button> {}
 

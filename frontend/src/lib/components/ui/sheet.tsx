@@ -2,8 +2,8 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { cva, type VariantProps } from "class-variance-authority"
 import { XIcon } from "lucide-react"
-import { cn } from "@/lib/utils/cn.util"
-import { Button } from "@/lib/components/ui/button"
+import { cn } from "@lib/utils/cn.util"
+import { Button } from "@lib/components/ui/button"
 
 function Sheet({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="sheet" {...props} />

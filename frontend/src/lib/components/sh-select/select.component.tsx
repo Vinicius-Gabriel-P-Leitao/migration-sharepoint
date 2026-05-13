@@ -8,8 +8,8 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from '@/lib/components/ui/select';
-import { cn } from '@/lib/utils/cn.util';
+} from '@lib/components/ui/select';
+import { cn } from '@lib/utils/cn.util';
 
 interface ShSelectProps {
   value?: string;

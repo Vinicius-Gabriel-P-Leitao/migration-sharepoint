@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from '@/lib/components/ui/dialog';
+} from '@lib/components/ui/dialog';
 
 const SIZE_MAP = {
   sm:   { maxWidth: '24rem' },

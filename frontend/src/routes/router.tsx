@@ -1,9 +1,9 @@
 import { createRouter, createRoute, createRootRoute, Outlet } from '@tanstack/react-router';
-import { AppProvider } from '@/lib/app.provider';
-import { ShLayoutComponent } from '@/lib/components/sh-layout/layout.component';
-import { JobsRoute } from './jobs/home/home.component';
-import { ConnectionsRoute } from './connections/list/connections.component';
-import { LogsRoute } from './logs/list/logs.component';
+import { AppProvider } from '@lib/app.provider';
+import { ShLayoutComponent } from '@lib/components/sh-layout/layout.component';
+import { JobsRoute } from './jobs/jobs.component';
+import { ConnectionsRoute } from './connections/connections.component';
+import { LogsRoute } from './logs/logs.component';
 
 // Root Route
 const rootRoute = createRootRoute({

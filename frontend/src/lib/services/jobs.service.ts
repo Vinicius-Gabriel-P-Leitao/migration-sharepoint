@@ -1,5 +1,5 @@
-import apiClient from '@/lib/utils/axios.util';
-import type { JobResponse, JobRequest, LogResponse } from '../jobs.type';
+import apiClient from '@lib/utils/axios.util';
+import type { JobResponse, JobRequest, LogResponse } from '@routes/jobs/jobs.type';
 
 export const jobsService = {
   getAll: async (): Promise<JobResponse[]> => {

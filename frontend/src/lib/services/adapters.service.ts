@@ -1,5 +1,5 @@
-import apiClient from '@/lib/utils/axios.util';
-import type { TargetDb } from '@/routes/jobs/jobs.type';
+import apiClient from '@lib/utils/axios.util';
+import type { TargetDb } from '@routes/jobs/jobs.type';
 
 export interface AdapterTypesResponse {
   canonical: Record<string, string>;

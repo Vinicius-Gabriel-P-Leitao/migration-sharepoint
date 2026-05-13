@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useUpdateJob } from '@/lib/hooks/jobs.hook';
-import { connectionsService } from '@/routes/connections/services/connections.service';
-import { adaptersService } from '@/routes/adapters/services/adapters.service';
-import { sharepointService } from '@/routes/sharepoint/services/sharepoint.service';
-import type { CanonicalType, IntervalUnit, JobRequest, JobResponse, ScheduleType, TargetDb } from '@/routes/jobs/jobs.type';
+import { useUpdateJob } from '@lib/hooks/jobs.hook';
+import { useConnections } from '@lib/hooks/connections.hook';
+import { useAdapterTypes } from '@lib/hooks/adapters.hook';
+import { useResolveSharePoint } from '@lib/hooks/sharepoint.hook';
+import type { CanonicalType, IntervalUnit, JobRequest, JobResponse, ScheduleType, TargetDb } from '../jobs.type';
 import {
   Sheet,
   SheetContent,
@@ -13,15 +12,15 @@ import {
   SheetFooter,
   SheetTitle,
   SheetDescription,
-} from '@/lib/components/ui/sheet';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/lib/components/ui/tabs';
-import { Input } from '@/lib/components/ui/input';
-import { Label } from '@/lib/components/ui/label';
-import { ShSelect, ShSelectItem, ShSelectSeparator } from '@/lib/components/sh-select/select.component';
-import { ShButton } from '@/lib/components/sh-button/button.component';
+} from '@lib/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@lib/components/ui/tabs';
+import { Input } from '@lib/components/ui/input';
+import { Label } from '@lib/components/ui/label';
+import { ShSelect, ShSelectItem, ShSelectSeparator } from '@lib/components/sh-select/select.component';
+import { ShButton } from '@lib/components/sh-button/button.component';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils/cn.util';
+import { cn } from '@lib/utils/cn.util';
 
 const NONE_NATIVE = '__none__';
 const TARGET_DBS: TargetDb[] = ['MYSQL', 'POSTGRESQL', 'MONGODB'];
@@ -59,17 +58,9 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
 
   const updateJob = useUpdateJob(job?.id ?? 0);
 
-  const { data: connections, isLoading: loadingConnections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: connectionsService.getAll,
-    enabled: open,
-  });
+  const { data: connections, isLoading: loadingConnections } = useConnections(open);
 
-  const { data: adapterTypes, isLoading: loadingTypes } = useQuery({
-    queryKey: ['adapter-types', targetDb],
-    queryFn: () => adaptersService.getTypes(targetDb),
-    enabled: open,
-  });
+  const { data: adapterTypes, isLoading: loadingTypes } = useAdapterTypes(targetDb, open);
 
   const canonicalTypes: CanonicalType[] = adapterTypes
     ? (Object.keys(adapterTypes.canonical) as CanonicalType[])
@@ -102,11 +93,13 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
   }, [job]);
 
   const [resolving, setResolving] = useState(false);
+  const resolveMutation = useResolveSharePoint();
+
   const handleResolve = async () => {
     if (!resolveUrl.trim()) return;
     setResolving(true);
     try {
-      const result = await sharepointService.resolve({ url: resolveUrl });
+      const result = await resolveMutation.mutateAsync({ url: resolveUrl });
       setSiteId(result.siteId);
       setListId(result.listId);
       // Merge new columns, preserving existing mappings

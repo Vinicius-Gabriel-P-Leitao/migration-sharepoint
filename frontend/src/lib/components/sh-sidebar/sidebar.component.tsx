@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { LayoutDashboard, Database, History, Settings } from 'lucide-react';
-import { ShButton } from '@/lib/components/sh-button/button.component';
+import { ShButton } from '@lib/components/sh-button/button.component';
 
 interface ShSidebarProps {
   onNavigate?: () => void;

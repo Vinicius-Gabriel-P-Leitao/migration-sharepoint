@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useJobs, useRunJob, useDeleteJob } from '@/lib/hooks/jobs.hook';
-import { ShButton } from '@/lib/components/sh-button/button.component';
+import { useJobs, useRunJob, useDeleteJob } from '@lib/hooks/jobs.hook';
+import { ShButton } from '@lib/components/sh-button/button.component';
 import {
   Card,
   CardContent,
@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/lib/components/ui/card';
+} from '@lib/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,14 +18,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/lib/components/ui/alert-dialog';
-import { Skeleton } from '@/lib/components/ui/skeleton';
-import { Badge } from '@/lib/components/ui/badge';
-import { Separator } from '@/lib/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/components/ui/tooltip';
-import { CreateJobDialog } from '@/routes/jobs/create/create-job.dialog';
-import { EditJobSheet } from '@/routes/jobs/edit/edit-job.sheet';
-import type { JobResponse, ScheduleType } from '../jobs.type';
+} from '@lib/components/ui/alert-dialog';
+import { Skeleton } from '@lib/components/ui/skeleton';
+import { Badge } from '@lib/components/ui/badge';
+import { Separator } from '@lib/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@lib/components/ui/tooltip';
+import { CreateJobDialog } from './components/create-job.component';
+import { EditJobSheet } from './components/edit-job.component';
+import type { JobResponse, ScheduleType } from './jobs.type';
 import {
   Play,
   Trash2,
@@ -38,7 +38,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { JobLogsSheet } from '@/routes/jobs/logs/job-logs.sheet';
+import { JobLogsSheet } from './components/job-logs.component';
 
 const scheduleMeta: Record<ScheduleType, { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' }> = {
   MANUAL: { label: 'Manual', variant: 'secondary' },
@@ -168,7 +168,7 @@ export const JobsRoute = () => {
         {!isLoading && !isError && jobs && jobs.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {jobs.map((job) => {
-              const schedule = scheduleMeta[job.scheduleType];
+              const schedule = scheduleMeta[job.scheduleType as ScheduleType];
               const fieldCount = Object.keys(job.fieldMappings).length;
               return (
                 <Card key={job.id} className="flex flex-col">

@@ -1,4 +1,4 @@
-import apiClient from '@/lib/utils/axios.util';
+import apiClient from '@lib/utils/axios.util';
 
 export interface SharePointResolveRequest {
   url: string;
