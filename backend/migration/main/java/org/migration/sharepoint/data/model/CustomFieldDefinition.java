@@ -7,14 +7,20 @@
  */
 package org.migration.sharepoint.data.model;
 
+import lombok.*;
 import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.CustomFunction;
 
-public record CustomFieldDefinition(
-        String column,
-        ColumnType type,
-        String nativeType,
-        CustomFunction function,
-        String staticValue,
-        boolean primaryKey,
-        boolean uniqueKey) {}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CustomFieldDefinition {
+    private String column;
+    private ColumnType type;
+    private String nativeType;
+    private CustomFunction function;
+    private String staticValue;
+    private boolean primaryKey;
+    private boolean uniqueKey;
+}

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -179,7 +180,7 @@ class SharePointMigrationJobTest {
 
         ArgumentCaptor<Set<String>> fieldsCaptor = ArgumentCaptor.forClass(Set.class);
         verify(graphClient).fetchListItems(any(), any(), fieldsCaptor.capture(), anyInt());
-        assertThat(fieldsCaptor.getValue()).containsExactlyInAnyOrder("Title", "Amount");
+        assertThat(fieldsCaptor.getValue()).containsExactlyInAnyOrder("Title", "Amount", "id");
     }
 
     // -------------------------------------------------------------------------
@@ -223,6 +224,31 @@ class SharePointMigrationJobTest {
         assertThat(finalLog.getStatus()).isEqualTo(JobStatus.FAILED);
         assertThat(finalLog.getErrorMessage()).isNotBlank();
         verify(writerRegistry, never()).get(any());
+    }
+
+    @Test
+    void shouldHandleSparseSharePointDataWithoutNPE() throws Exception {
+        MigrationJob job = buildJob(ScheduleType.MANUAL);
+        // "Amount" is missing in second row, "Title" is null in second row
+        List<Map<String, Object>> spData = List.of(
+            Map.of("id", "1", "Title", "Row 1", "Amount", 10),
+            new HashMap<>() {{ put("id", "2"); put("Title", null); }} 
+        );
+
+        MigrationWriter writer = mock(MigrationWriter.class);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(logRepository.save(any())).thenReturn(MigrationLog.builder().id(1L).build());
+        when(graphClient.fetchListItems(any(), any(), any(), anyInt())).thenReturn(spData);
+        when(writerRegistry.get(TargetDb.MYSQL)).thenReturn(writer);
+
+        migrationJob.execute(context);
+
+        ArgumentCaptor<List<Map<String, Object>>> rowsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(writer).write(any(), any(), rowsCaptor.capture(), any(), any(), any());
+
+        List<Map<String, Object>> rows = rowsCaptor.getValue();
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(1)).containsEntry("title", null).doesNotContainKey("amount");
     }
 
     // -------------------------------------------------------------------------

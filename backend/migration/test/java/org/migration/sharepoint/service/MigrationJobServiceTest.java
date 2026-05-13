@@ -105,7 +105,7 @@ class MigrationJobServiceTest {
         JobResponse response = service.findById(1L);
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.name()).isEqualTo("Test Job");
-        assertThat(response.migration().siteId()).isEqualTo("site-123");
+        assertThat(response.migration().getSiteId()).isEqualTo("site-123");
     }
 
     @Test

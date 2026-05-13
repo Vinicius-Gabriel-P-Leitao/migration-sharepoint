@@ -39,18 +39,27 @@ class MigrationJobControllerTest {
     @MockitoBean
     private MigrationJobService service;
 
-    private static final Map<String, FieldMapping> FIELD_MAPPINGS =
-            Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null, false, false));
+    private static final Map<String, FieldMapping> FIELD_MAPPINGS = Map.of(
+            "Title",
+            FieldMapping.builder()
+                    .column("title")
+                    .type(ColumnType.TEXT)
+                    .nativeType(null)
+                    .primaryKey(false)
+                    .uniqueKey(false)
+                    .autoIncrement(false)
+                    .build());
 
-    private static final JobNode ROOT_NODE = new JobNode(
-            "https://tenant.sharepoint.com/sites/Test",
-            "site-123",
-            "list-456",
-            "test_table",
-            FIELD_MAPPINGS,
-            Map.of(),
-            List.of(),
-            List.of());
+    private static final JobNode ROOT_NODE = JobNode.builder()
+            .sharepointUrl("https://tenant.sharepoint.com/sites/Test")
+            .siteId("site-123")
+            .listId("list-456")
+            .tableName("test_table")
+            .fieldMappings(FIELD_MAPPINGS)
+            .customFields(Map.of())
+            .foreignKeys(List.of())
+            .children(List.of())
+            .build();
 
     private JobResponse buildJobResponse(Long id, ScheduleType scheduleType) {
         return new JobResponse(
@@ -80,7 +89,7 @@ class MigrationJobControllerTest {
                 "siteId": "site-123",
                 "listId": "list-456",
                 "tableName": "test_table",
-                "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false}},
+                "fieldMappings": {"Title": {"column": "title", "type": "TEXT", "nativeType": null, "primaryKey": false, "uniqueKey": false, "autoIncrement": false}},
                 "customFields": {},
                 "foreignKeys": [],
                 "children": []

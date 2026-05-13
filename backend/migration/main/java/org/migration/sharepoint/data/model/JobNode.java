@@ -9,13 +9,19 @@ package org.migration.sharepoint.data.model;
 
 import java.util.List;
 import java.util.Map;
+import lombok.*;
 
-public record JobNode(
-        String sharepointUrl,
-        String siteId,
-        String listId,
-        String tableName,
-        Map<String, FieldMapping> fieldMappings,
-        Map<String, CustomFieldDefinition> customFields,
-        List<ForeignKeyDefinition> foreignKeys,
-        List<JobNode> children) {}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class JobNode {
+    private String sharepointUrl;
+    private String siteId;
+    private String listId;
+    private String tableName;
+    private Map<String, FieldMapping> fieldMappings;
+    private Map<String, CustomFieldDefinition> customFields;
+    private List<ForeignKeyDefinition> foreignKeys;
+    private List<JobNode> children;
+}

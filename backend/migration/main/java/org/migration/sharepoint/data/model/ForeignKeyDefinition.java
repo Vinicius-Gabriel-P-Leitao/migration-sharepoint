@@ -7,4 +7,13 @@
  */
 package org.migration.sharepoint.data.model;
 
-public record ForeignKeyDefinition(String localColumn, String parentColumn) {}
+import lombok.*;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ForeignKeyDefinition {
+    private String localColumn;
+    private String parentColumn;
+}

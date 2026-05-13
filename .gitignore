@@ -1,3 +1,6 @@
 /backend/migration/data/sharepoint.db
 /backend/migration/main/resources/sharepoint.db-shm
 /backend/migration/main/resources/sharepoint.db-wal
+/backend/main/resources/sharepoint.db
+/backend/main/resources/sharepoint.db-shm
+/backend/main/resources/sharepoint.db-wal

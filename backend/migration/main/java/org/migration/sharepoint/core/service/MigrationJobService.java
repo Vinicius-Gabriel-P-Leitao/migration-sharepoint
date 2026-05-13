@@ -126,22 +126,22 @@ public class MigrationJobService {
     }
 
     private void validateRequiredNodeMetadata(JobNode node, String path) {
-        if (isStringEmpty(node.siteId())) throwBadRequest("%s.siteId não pode ser vazio".formatted(path));
-        if (isStringEmpty(node.listId())) throwBadRequest("%s.listId não pode ser vazio".formatted(path));
-        if (isStringEmpty(node.tableName())) throwBadRequest("%s.tableName não pode ser vazio".formatted(path));
-        if (node.fieldMappings() == null || node.fieldMappings().isEmpty()) {
+        if (isStringEmpty(node.getSiteId())) throwBadRequest("%s.siteId não pode ser vazio".formatted(path));
+        if (isStringEmpty(node.getListId())) throwBadRequest("%s.listId não pode ser vazio".formatted(path));
+        if (isStringEmpty(node.getTableName())) throwBadRequest("%s.tableName não pode ser vazio".formatted(path));
+        if (node.getFieldMappings() == null || node.getFieldMappings().isEmpty()) {
             throwBadRequest("%s.fieldMappings não pode ser vazio".formatted(path));
         }
     }
 
     private List<String> extractAvailableColumns(JobNode node) {
-        Stream<String> mappedColumns = node.fieldMappings().values().stream().map(FieldMapping::column);
+        Stream<String> mappedColumns = node.getFieldMappings().values().stream().map(FieldMapping::getColumn);
 
-        Stream<String> customColumns = Optional.ofNullable(node.customFields())
+        Stream<String> customColumns = Optional.ofNullable(node.getCustomFields())
                 .map(Map::values)
                 .map(Collection::stream)
                 .orElse(Stream.empty())
-                .map(CustomFieldDefinition::column);
+                .map(CustomFieldDefinition::getColumn);
 
         return Stream.concat(mappedColumns, customColumns)
                 .filter(Objects::nonNull)
@@ -153,7 +153,7 @@ public class MigrationJobService {
     private void validateForeignKeyIntegrity(
             JobNode node, String path, JobNode parentNode, List<String> availableNodeColumns) {
         List<ForeignKeyDefinition> foreignKeys =
-                Optional.ofNullable(node.foreignKeys()).orElse(List.of());
+                Optional.ofNullable(node.getForeignKeys()).orElse(List.of());
         if (foreignKeys.isEmpty()) return;
 
         if (parentNode == null) {
@@ -166,69 +166,70 @@ public class MigrationJobService {
             ForeignKeyDefinition foreignKey = foreignKeys.get(index);
             String foreignKeyPath = "%s.foreignKeys[%d]".formatted(path, index);
 
-            if (!availableNodeColumns.contains(foreignKey.localColumn())) {
-                throwBadRequest(
-                        "%s.localColumn '%s' não existe no nodo".formatted(foreignKeyPath, foreignKey.localColumn()));
+            if (!availableNodeColumns.contains(foreignKey.getLocalColumn())) {
+                throwBadRequest("%s.localColumn '%s' não existe no nodo"
+                        .formatted(foreignKeyPath, foreignKey.getLocalColumn()));
             }
-            if (!availableParentColumns.contains(foreignKey.parentColumn())) {
+            if (!availableParentColumns.contains(foreignKey.getParentColumn())) {
                 throwBadRequest("%s.parentColumn '%s' não existe no nodo pai"
-                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+                        .formatted(foreignKeyPath, foreignKey.getParentColumn()));
             }
 
             // Validação de Unicidade no Pai
-            FieldMapping parentMapping = findFieldMappingByColumn(parentNode, foreignKey.parentColumn())
+            FieldMapping parentMapping = findFieldMappingByColumn(parentNode, foreignKey.getParentColumn())
                     .orElse(null);
 
             if (parentMapping == null) {
                 throwBadRequest("%s.parentColumn '%s' deve ser um campo mapeado e possuir Primary Key ou Unique Key"
-                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+                        .formatted(foreignKeyPath, foreignKey.getParentColumn()));
             }
 
-            if (!parentMapping.primaryKey() && !parentMapping.uniqueKey()) {
+            if (!parentMapping.isPrimaryKey() && !parentMapping.isUniqueKey()) {
                 throwBadRequest("%s.parentColumn '%s' não é Primary Key nem Unique Key no nodo pai"
-                        .formatted(foreignKeyPath, foreignKey.parentColumn()));
+                        .formatted(foreignKeyPath, foreignKey.getParentColumn()));
             }
 
             // Validação de Tipos
-            ColumnType localType = getColumnType(node, foreignKey.localColumn());
-            ColumnType parentType = getColumnType(parentNode, foreignKey.parentColumn());
+            ColumnType localType = getColumnType(node, foreignKey.getLocalColumn());
+            ColumnType parentType = getColumnType(parentNode, foreignKey.getParentColumn());
 
             if (localType != parentType) {
                 throwBadRequest("%s.localColumn '%s' (tipo %s) incompatível com parentColumn '%s' (tipo %s)"
                         .formatted(
                                 foreignKeyPath,
-                                foreignKey.localColumn(),
+                                foreignKey.getLocalColumn(),
                                 localType,
-                                foreignKey.parentColumn(),
+                                foreignKey.getParentColumn(),
                                 parentType));
             }
         });
     }
 
     private Optional<FieldMapping> findFieldMappingByColumn(JobNode node, String column) {
-        Optional<FieldMapping> mapping = node.fieldMappings().values().stream()
-                .filter(fm -> column.equals(fm.column()))
+        Optional<FieldMapping> mapping = node.getFieldMappings().values().stream()
+                .filter(fm -> column.equals(fm.getColumn()))
                 .findFirst();
 
         if (mapping.isPresent()) {
             return mapping;
         }
 
-        return Optional.ofNullable(node.customFields())
+        return Optional.ofNullable(node.getCustomFields())
                 .map(Map::values)
                 .map(Collection::stream)
                 .orElse(Stream.empty())
-                .filter(cf -> column.equals(cf.column()))
-                .map(cf -> new FieldMapping(cf.column(), cf.type(), cf.nativeType(), cf.primaryKey(), cf.uniqueKey()))
+                .filter(cf -> column.equals(cf.getColumn()))
+                .map(cf -> new FieldMapping(
+                        cf.getColumn(), cf.getType(), cf.getNativeType(), cf.isPrimaryKey(), cf.isUniqueKey()))
                 .findFirst();
     }
 
     private ColumnType getColumnType(JobNode node, String column) {
-        return findFieldMappingByColumn(node, column).map(FieldMapping::type).orElse(ColumnType.TEXT);
+        return findFieldMappingByColumn(node, column).map(FieldMapping::getType).orElse(ColumnType.TEXT);
     }
 
     private void validateChildrenRecursively(JobNode node, String path, List<String> availableNodeColumns) {
-        List<JobNode> children = Optional.ofNullable(node.children()).orElse(List.of());
+        List<JobNode> children = Optional.ofNullable(node.getChildren()).orElse(List.of());
         IntStream.range(0, children.size()).forEach(index -> {
             String childPath = "%s.children[%d]".formatted(path, index);
             validateNode(children.get(index), childPath, node);

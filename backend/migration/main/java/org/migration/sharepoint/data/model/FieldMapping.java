@@ -7,6 +7,30 @@
  */
 package org.migration.sharepoint.data.model;
 
+import lombok.*;
 import org.migration.sharepoint.data.enums.ColumnType;
 
-public record FieldMapping(String column, ColumnType type, String nativeType, boolean primaryKey, boolean uniqueKey) {}
+/**
+ * Mapeamento de campo para o banco de destino.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class FieldMapping {
+    private String column;
+    private ColumnType type;
+    private String nativeType;
+    private boolean primaryKey;
+    private boolean uniqueKey;
+    private boolean autoIncrement;
+
+    public FieldMapping(String column, ColumnType type, String nativeType, boolean primaryKey, boolean uniqueKey) {
+        this.column = column;
+        this.type = type;
+        this.nativeType = nativeType;
+        this.primaryKey = primaryKey;
+        this.uniqueKey = uniqueKey;
+        this.autoIncrement = false;
+    }
+}

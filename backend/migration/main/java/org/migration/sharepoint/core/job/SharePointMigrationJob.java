@@ -13,8 +13,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.data.enums.CustomFunction;
 import org.migration.sharepoint.data.enums.JobStatus;
@@ -27,7 +27,6 @@ import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.base.AppException;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.graph.GraphClient;
-import org.migration.sharepoint.infra.writer.MigrationWriter;
 import org.migration.sharepoint.infra.writer.MigrationWriterRegistry;
 import org.quartz.*;
 import org.slf4j.MDC;
@@ -77,9 +76,15 @@ public class SharePointMigrationJob implements Job {
                 .build());
 
         try {
-            RelationalContext relationalContext = new RelationalContext();
             JobNode rootNode = job.getMigration();
-            int total = syncNode(
+            if (rootNode == null) {
+                log.warn("Job id={} não possui configuração de migração", jobId);
+                finalizeSuccess(migrationLog, 0);
+                return;
+            }
+
+            RelationalContext relationalContext = new RelationalContext();
+            int totalMigrated = syncNode(
                     rootNode,
                     job.getConnectionKey(),
                     job.getTargetDb(),
@@ -88,77 +93,91 @@ public class SharePointMigrationJob implements Job {
                     null,
                     relationalContext);
 
-            if (rootNode.children() != null && !rootNode.children().isEmpty()) {
-                total += syncTree(
-                        rootNode.children(),
-                        job.getConnectionKey(),
-                        job.getTargetDb(),
-                        job.getPageSize(),
-                        jobId,
-                        rootNode.tableName(),
-                        relationalContext);
-            }
-
-            migrationLog.setStatus(JobStatus.SUCCESS);
-            migrationLog.setFinishedAt(LocalDateTime.now());
-            logRepository.save(migrationLog);
-
-            log.info("Job id={} concluído — {} registros migrados (total, todos os nós)", jobId, total);
+            finalizeSuccess(migrationLog, totalMigrated);
 
             if (job.getScheduleType() == ScheduleType.CONTINUOUS) {
-                try {
-                    context.getScheduler().triggerJob(context.getJobDetail().getKey());
-                } catch (SchedulerException schedulerException) {
-                    log.error("Job id={} CONTINUOUS: falha ao reagendar próxima execução", jobId, schedulerException);
-                }
+                triggerNextRun(context);
             }
 
-        } catch (AppException appException) {
-            log.warn("Job id={} falhou: [{}] {}", jobId, appException.getErrorCode(), appException.getMessage());
-            fail(migrationLog, appException.getMessage());
-
-        } catch (Exception unexpectedException) {
-            String errorMessage = unexpectedException.getMessage() != null
-                    ? unexpectedException.getMessage()
-                    : unexpectedException.getClass().getSimpleName();
-            log.error("Job id={} falhou com erro inesperado", jobId, unexpectedException);
-            fail(migrationLog, errorMessage);
-            throw new JobExecutionException(unexpectedException);
+        } catch (AppException exception) {
+            handleFailure(
+                    migrationLog,
+                    exception.getMessage(),
+                    exception.getErrorCode().name());
+        } catch (Exception exception) {
+            handleFailure(
+                    migrationLog,
+                    Optional.ofNullable(exception.getMessage())
+                            .orElse(exception.getClass().getSimpleName()),
+                    "UNEXPECTED_ERROR");
+            throw new JobExecutionException(exception);
         }
     }
 
+    private void finalizeSuccess(MigrationLog migrationLog, int total) {
+        migrationLog.setStatus(JobStatus.SUCCESS);
+        migrationLog.setFinishedAt(LocalDateTime.now());
+        logRepository.save(migrationLog);
+        Long jobId = Optional.ofNullable(migrationLog.getJob())
+                .map(MigrationJob::getId)
+                .orElse(0L);
+        log.info("Job id={} concluído — {} registros migrados", jobId, total);
+    }
+
+    private void triggerNextRun(JobExecutionContext context) {
+        try {
+            context.getScheduler().triggerJob(context.getJobDetail().getKey());
+        } catch (SchedulerException exception) {
+            log.error("Erro ao disparar próxima execução CONTINUOUS", exception);
+        }
+    }
+
+    private void handleFailure(MigrationLog migrationLog, String message, String code) {
+        log.warn("Job falhou: [{}] {}", code, message);
+        migrationLog.setStatus(JobStatus.FAILED);
+        migrationLog.setFinishedAt(LocalDateTime.now());
+        migrationLog.setErrorMessage(message);
+        logRepository.save(migrationLog);
+    }
+
     private Object generateCustomValue(CustomFieldDefinition definition) {
-        return switch (definition.function()) {
+        return switch (definition.getFunction()) {
             case CURRENT_TIMESTAMP_UTC_3 -> OffsetDateTime.now(ZONE_BR).toLocalDateTime();
             case CURRENT_DATE_BR -> OffsetDateTime.now(ZONE_BR).toLocalDate();
             case UUID_GEN -> UUID.randomUUID().toString();
-            case STATIC_VALUE -> definition.staticValue();
-            case AUTO_INCREMENT -> null; // O Banco de Dados assume
+            case STATIC_VALUE -> definition.getStaticValue();
+            case AUTO_INCREMENT -> null;
         };
     }
 
     private static class RelationalContext {
-        // Table Name -> (SharePoint ID -> MySQL ID)
         private final Map<String, Map<Object, Long>> idMap = new java.util.concurrent.ConcurrentHashMap<>();
 
-        public void addMapping(String tableName, Object sharePointId, Long mySqlId) {
-            if (sharePointId == null || mySqlId == null) return;
-            idMap.computeIfAbsent(tableName, k -> new java.util.concurrent.ConcurrentHashMap<>())
-                    .put(sharePointId, mySqlId);
+        public void addMapping(String table, Object sharePointId, Long databaseId) {
+            Optional.ofNullable(sharePointId)
+                    .ifPresent(id -> idMap.computeIfAbsent(table, k -> new java.util.concurrent.ConcurrentHashMap<>())
+                            .put(id, databaseId));
         }
 
-        public Long getMySqlId(String tableName, Object sharePointId) {
-            if (tableName == null || sharePointId == null) return null;
-            // SharePoint pode retornar IDs como Integer ou String, garantimos a comparação
-            Map<Object, Long> tableMap = idMap.getOrDefault(tableName, Collections.emptyMap());
-            Long id = tableMap.get(sharePointId);
-            if (id == null) {
-                id = tableMap.get(String.valueOf(sharePointId));
+        public Long getDbId(String table, Object sharePointId) {
+            return Optional.ofNullable(sharePointId)
+                    .map(id -> {
+                        Map<Object, Long> tableMap = idMap.getOrDefault(table, Collections.emptyMap());
+                        return Optional.ofNullable(tableMap.get(id))
+                                .or(() -> Optional.ofNullable(tableMap.get(String.valueOf(id))))
+                                .or(() -> tryParseInt(id).map(tableMap::get))
+                                .orElse(null);
+                    })
+                    .orElse(null);
+        }
+
+        private Optional<Integer> tryParseInt(Object value) {
+            if (!(value instanceof String str)) return Optional.empty();
+            try {
+                return Optional.of(Integer.valueOf(str));
+            } catch (Exception exception) {
+                return Optional.empty();
             }
-            if (id == null && sharePointId instanceof String str) {
-                try { id = tableMap.get(Integer.valueOf(str)); } catch (Exception ignored) {}
-            }
-            return id;
         }
     }
 
@@ -168,101 +187,166 @@ public class SharePointMigrationJob implements Job {
             TargetDb targetDb,
             int pageSize,
             Long jobId,
-            String parentTableName,
+            String parent,
             RelationalContext context) {
+        if (node == null) return 0;
 
-        // Sempre buscamos o ID do SharePoint para poder mapear as relações
-        Set<String> fieldsToFetch = new HashSet<>(node.fieldMappings().keySet());
-        fieldsToFetch.add("id");
+        Set<String> fields = Stream.concat(node.getFieldMappings().keySet().stream(), Stream.of("id"))
+                .collect(Collectors.toSet());
+        List<Map<String, Object>> rawData =
+                graphClient.fetchListItems(node.getSiteId(), node.getListId(), fields, pageSize);
 
-        List<Map<String, Object>> rawData = graphClient.fetchListItems(
-                node.siteId(), node.listId(), fieldsToFetch, pageSize);
+        List<Map<String, Object>> mappedData = applyFieldMapping(rawData, node.getFieldMappings());
 
-        List<Map<String, Object>> mappedData = applyFieldMapping(rawData, node.fieldMappings(), jobId);
+        // --- RELATIONSHIP RESOLUTION ---
+        injectCustomFields(
+                mappedData, Optional.ofNullable(node.getCustomFields()).orElse(Map.of()));
+        resolveForeignKeys(node, mappedData, context, parent);
 
-        // Resolve Foreign Keys: Substitui o ID do SharePoint pelo ID do MySQL do pai
-        resolveForeignKeys(node, mappedData, context, parentTableName);
+        // --- SELF-NORMALIZATION / DISTINCT LOGIC ---
+        List<String> uniqueCols = node.getFieldMappings().values().stream()
+                .filter(FieldMapping::isUniqueKey)
+                .map(FieldMapping::getColumn)
+                .toList();
 
-        // Injeta campos virtuais (Custom Fields)
-        if (node.customFields() != null && !node.customFields().isEmpty()) {
-            injectCustomFields(mappedData, node.customFields());
+        List<Map<String, Object>> dataToWrite;
+        if (!uniqueCols.isEmpty()) {
+            dataToWrite = mappedData.stream().filter(distinctByKeys(uniqueCols)).collect(Collectors.toList());
+        } else {
+            dataToWrite = mappedData;
         }
 
-        Map<String, FieldMapping> combinedTypes = buildCombinedTypes(node);
+        List<Long> generatedKeys = writerRegistry
+                .get(targetDb)
+                .write(
+                        connectionKey,
+                        node.getTableName(),
+                        dataToWrite,
+                        buildCombinedTypes(node),
+                        node.getForeignKeys(),
+                        parent);
 
-        MigrationWriter writer = writerRegistry.get(targetDb);
-        List<Long> generatedKeys = writer.write(
-                connectionKey, node.tableName(), mappedData, combinedTypes, node.foreignKeys(), parentTableName);
+        // Map ALL items (even filtered ones) to the generated IDs
+        populateRelationalContext(node.getTableName(), mappedData, dataToWrite, generatedKeys, uniqueCols, context);
 
-        // Popula o contexto relacional: Mapeia o ID do SharePoint para o ID do MySQL gerado
-        populateRelationalContext(node, rawData, generatedKeys, context);
+        log.info(
+                "Job id={} Nodo={}: {} registros processados ({} inseridos no banco)",
+                jobId,
+                node.getTableName(),
+                mappedData.size(),
+                dataToWrite.size());
 
-        log.info("Job id={} Nodo={}: {} registros migrados", jobId, node.tableName(), mappedData.size());
+        int selfCount = dataToWrite.size();
+        int childrenCount = syncTree(
+                Optional.ofNullable(node.getChildren()).orElse(List.of()),
+                connectionKey,
+                targetDb,
+                pageSize,
+                jobId,
+                node.getTableName(),
+                context);
 
-        int totalCount = mappedData.size();
+        return selfCount + childrenCount;
+    }
 
-        // Processa filhos recursivamente
-        if (node.children() != null) {
-            for (JobNode child : node.children()) {
-                totalCount += syncNode(child, connectionKey, targetDb, pageSize, jobId, node.tableName(), context);
-            }
-        }
-
-        return totalCount;
+    private java.util.function.Predicate<Map<String, Object>> distinctByKeys(List<String> keys) {
+        Set<List<Object>> seen = new java.util.HashSet<>();
+        return row -> {
+            List<Object> values = keys.stream()
+                    .map(row::get)
+                    .map(val -> val instanceof String s ? s.trim().toUpperCase() : val)
+                    .toList();
+            return seen.add(values);
+        };
     }
 
     private void resolveForeignKeys(
-            JobNode node, List<Map<String, Object>> mappedData, RelationalContext context, String parentTableName) {
-        if (parentTableName == null || node.foreignKeys() == null || node.foreignKeys().isEmpty()) return;
+            JobNode node, List<Map<String, Object>> data, RelationalContext context, String parent) {
+        if (parent == null || node.getForeignKeys() == null) return;
+        node.getForeignKeys()
+                .forEach(foreignKey -> data.forEach(row -> {
+                    // Priority 1: Use the value already in the column (if it's a source ID from another list)
+                    Object lookupValue = row.get(foreignKey.getLocalColumn());
 
-        for (ForeignKeyDefinition fk : node.foreignKeys()) {
-            for (Map<String, Object> row : mappedData) {
-                Object sharePointParentId = row.get(fk.localColumn());
-                if (sharePointParentId != null) {
-                    Long mySqlParentId = context.getMySqlId(parentTableName, sharePointParentId);
-                    if (mySqlParentId != null) {
-                        row.put(fk.localColumn(), mySqlParentId);
+                    // Priority 2: SELF-NORMALIZATION. If the column is empty (e.g. STATIC_VALUE: ""),
+                    // it means we are extracting the parent from the SAME list item.
+                    // We use the item's own SharePoint ID to find the ID of the parent record
+                    // created for this same list item.
+                    if (lookupValue == null || (lookupValue instanceof String s && s.isBlank())) {
+                        lookupValue = row.get("_sp_id");
                     }
-                }
-            }
-        }
+
+                    Long databaseId = context.getDbId(parent, lookupValue);
+                    if (databaseId != null) {
+                        row.put(foreignKey.getLocalColumn(), databaseId);
+                    }
+                }));
     }
 
     private void populateRelationalContext(
-            JobNode node, List<Map<String, Object>> rawData, List<Long> generatedKeys, RelationalContext context) {
-        if (generatedKeys.size() != rawData.size()) return;
+            String table,
+            List<Map<String, Object>> allMappedData,
+            List<Map<String, Object>> writtenData,
+            List<Long> generatedKeys,
+            List<String> uniqueCols,
+            RelationalContext context) {
 
-        for (int i = 0; i < rawData.size(); i++) {
-            Object sharePointId = rawData.get(i).get("id");
-            Long mySqlId = generatedKeys.get(i);
-            context.addMapping(node.tableName(), sharePointId, mySqlId);
+        // 1. Create a lookup of [UniqueValueCombo] -> [DatabaseID]
+        Map<List<Object>, Long> valueToDbId = new HashMap<>();
+        if (!uniqueCols.isEmpty() && writtenData.size() == generatedKeys.size()) {
+            for (int i = 0; i < writtenData.size(); i++) {
+                List<Object> values = uniqueCols.stream()
+                        .map(writtenData.get(i)::get)
+                        .map(val -> val instanceof String s ? s.trim().toUpperCase() : val)
+                        .toList();
+                valueToDbId.put(values, generatedKeys.get(i));
+            }
+        }
+
+        // 2. Map every SharePoint item to a Database ID
+        for (int i = 0; i < allMappedData.size(); i++) {
+            Map<String, Object> row = allMappedData.get(i);
+            Object spId = row.get("_sp_id");
+
+            Long dbId;
+            if (uniqueCols.isEmpty()) {
+                // Standard 1:1 mapping (indices correspond if no distinct filter used)
+                dbId = (i < generatedKeys.size()) ? generatedKeys.get(i) : null;
+            } else {
+                // N:1 mapping (Self-Normalization)
+                List<Object> values = uniqueCols.stream()
+                        .map(row::get)
+                        .map(val -> val instanceof String s ? s.trim().toUpperCase() : val)
+                        .toList();
+                dbId = valueToDbId.get(values);
+            }
+
+            if (dbId != null) {
+                context.addMapping(table, spId, dbId);
+            }
         }
     }
 
     private Map<String, FieldMapping> buildCombinedTypes(JobNode node) {
-        Map<String, FieldMapping> combined = new HashMap<>();
-        node.fieldMappings().values().forEach(fieldMapping -> combined.put(fieldMapping.column(), fieldMapping));
-        if (node.customFields() != null) {
-            node.customFields().values().forEach(customField -> {
-                combined.put(
-                        customField.column(),
+        Map<String, FieldMapping> combinedMappings = new HashMap<>();
+        node.getFieldMappings().values().forEach(mapping -> combinedMappings.put(mapping.getColumn(), mapping));
+        Optional.ofNullable(node.getCustomFields()).ifPresent(customFields -> customFields
+                .values()
+                .forEach(customField -> combinedMappings.put(
+                        customField.getColumn(),
                         new FieldMapping(
-                                customField.column(),
-                                customField.type(),
-                                customField.nativeType(),
-                                customField.primaryKey(),
-                                customField.uniqueKey()));
-            });
-        }
-        return combined;
+                                customField.getColumn(),
+                                customField.getType(),
+                                customField.getNativeType(),
+                                customField.isPrimaryKey(),
+                                customField.isUniqueKey(),
+                                customField.getFunction() == CustomFunction.AUTO_INCREMENT))));
+        return combinedMappings;
     }
 
     private void injectCustomFields(List<Map<String, Object>> rows, Map<String, CustomFieldDefinition> customFields) {
-        rows.forEach(row -> {
-            customFields.forEach((key, definition) -> {
-                row.put(definition.column(), generateCustomValue(definition));
-            });
-        });
+        rows.forEach(
+                row -> customFields.values().forEach(field -> row.put(field.getColumn(), generateCustomValue(field))));
     }
 
     private int syncTree(
@@ -271,70 +355,57 @@ public class SharePointMigrationJob implements Job {
             TargetDb targetDb,
             int pageSize,
             Long jobId,
-            String parentTableName,
+            String parent,
             RelationalContext context) {
-        if (nodes == null || nodes.isEmpty()) return 0;
-
-        // INFO: Usamos virtual thread para api mais atual do java e trabalhamos com futures
+        if (nodes.isEmpty()) return 0;
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<Integer>> futures = new ArrayList<>(nodes.size());
-
-            for (JobNode node : nodes) {
-                futures.add(executor.submit(() -> {
-                    int count = syncNode(node, connectionKey, targetDb, pageSize, jobId, parentTableName, context);
-                    count += syncTree(node.children(), connectionKey, targetDb, pageSize, jobId, node.tableName(), context);
-
-                    return count;
-                }));
-            }
-
-            int total = 0;
-            for (Future<Integer> future : futures) {
-                try {
-                    total += future.get();
-                } catch (Exception exception) {
-                    throw new RuntimeException(exception);
-                }
-            }
-
-            return total;
+            return executor
+                    .invokeAll(nodes.stream()
+                            .filter(Objects::nonNull)
+                            .map(node -> (java.util.concurrent.Callable<Integer>)
+                                    () -> syncNode(node, connectionKey, targetDb, pageSize, jobId, parent, context))
+                            .toList())
+                    .stream()
+                    .mapToInt(future -> {
+                        try {
+                            return future.get();
+                        } catch (Exception exception) {
+                            throw new RuntimeException(exception);
+                        }
+                    })
+                    .sum();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(exception);
         }
-    }
-
-    private void fail(MigrationLog migrationLog, String errorMessage) {
-        migrationLog.setStatus(JobStatus.FAILED);
-        migrationLog.setFinishedAt(LocalDateTime.now());
-        migrationLog.setErrorMessage(errorMessage);
-        logRepository.save(migrationLog);
     }
 
     private List<Map<String, Object>> applyFieldMapping(
-            List<Map<String, Object>> rows, Map<String, FieldMapping> fieldMappings, Long jobId) {
-
-        Map<String, FieldMapping> normalizedMappings = new HashMap<>();
-        fieldMappings.forEach(
-                (fieldName, fieldMapping) -> normalizedMappings.put(fieldName.toLowerCase(), fieldMapping));
+            List<Map<String, Object>> rows, Map<String, FieldMapping> mappings) {
+        Map<String, FieldMapping> normalizedMappings = mappings.entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
 
         List<Map<String, Object>> mappedRows = rows.stream()
                 .map(row -> {
-                    Map<String, Object> outputRow = new LinkedHashMap<>();
+                    Map<String, Object> mappedRow = new LinkedHashMap<>();
+                    // CRITICAL: Preserve the original SharePoint ID inside the mapped row
+                    mappedRow.put("_sp_id", row.get("id"));
 
-                    row.forEach((actualKey, value) -> {
-                        FieldMapping mapping = normalizedMappings.get(actualKey.toLowerCase());
-                        if (mapping != null) {
-                            outputRow.put(mapping.column(), value);
+                    row.forEach((key, value) -> {
+                        String normalizedKey = key.toLowerCase();
+                        if (normalizedMappings.containsKey(normalizedKey)) {
+                            mappedRow.put(normalizedMappings.get(normalizedKey).getColumn(), value);
                         }
                     });
-                    return outputRow;
+                    return mappedRow;
                 })
+                .filter(row -> row.size() > 1) // Must have more than just _sp_id
                 .collect(Collectors.toList());
 
-        if (!mappedRows.isEmpty() && mappedRows.stream().allMatch(Map::isEmpty)) {
+        if (!rows.isEmpty() && mappedRows.isEmpty()) {
             throw new BadRequestException(
-                    ErrorCode.MIGRATION_EMPTY_MAPPING,
-                    "Nenhum campo do fieldMappings encontrado nos dados retornados pelo SharePoint.");
+                    ErrorCode.MIGRATION_EMPTY_MAPPING, "Nenhum campo mapeado encontrado nos dados do SharePoint.");
         }
-
         return mappedRows;
     }
 }

@@ -109,9 +109,9 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
   const canSave =
     name.trim() !== '' &&
     connectionKey !== '' &&
-    migration !== null &&
-    (migration.siteId ?? '') !== '' &&
-    (migration.tableName ?? '') !== '' &&
+    !!migration &&
+    (migration?.siteId ?? '') !== '' &&
+    (migration?.tableName ?? '') !== '' &&
     (scheduleType !== 'CRON' || cronExpression.trim() !== '');
 
   if (!job) return null;
