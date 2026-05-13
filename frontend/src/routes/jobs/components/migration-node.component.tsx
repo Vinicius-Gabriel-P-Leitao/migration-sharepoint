@@ -49,6 +49,7 @@ import {
   Settings2,
   CheckCircle2,
   Cpu,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@lib/utils/cn.util';
@@ -81,6 +82,7 @@ interface MigrationNodeProps {
   onRemove?: () => void;
   targetDb: TargetDb;
   isRoot?: boolean;
+  parentColumns?: string[];
 }
 
 export const MigrationNode = ({
@@ -89,6 +91,7 @@ export const MigrationNode = ({
   onRemove,
   targetDb,
   isRoot = false,
+  parentColumns = [],
 }: MigrationNodeProps) => {
   const [sharepointUrl, setSharepointUrl] = useState(node.sharepointUrl || '');
   const [isExpanded, setIsExpanded] = useState(true);
@@ -97,6 +100,11 @@ export const MigrationNode = ({
 
   const resolveMutation = useResolveSharePoint();
   const { data: adapterTypes } = useAdapterTypes(targetDb);
+
+  const currentColumns = [
+    ...Object.values(node.fieldMappings).map((m) => m.column),
+    ...Object.values(node.customFields).map((f) => f.column),
+  ].filter(Boolean);
 
   // Sync internal state when node.sharepointUrl changes from outside (e.g. during initial edit load)
   useEffect(() => {
@@ -189,6 +197,24 @@ export const MigrationNode = ({
     const newCustomFields = { ...node.customFields };
     delete newCustomFields[columnName];
     onChange({ ...node, customFields: newCustomFields });
+  };
+
+  const handleAddForeignKey = () => {
+    onChange({
+      ...node,
+      foreignKeys: [...(node.foreignKeys || []), { localColumn: '', parentColumn: '' }],
+    });
+  };
+
+  const handleUpdateForeignKey = (index: number, updates: Partial<{ localColumn: string; parentColumn: string }>) => {
+    const newFks = [...(node.foreignKeys || [])];
+    newFks[index] = { ...newFks[index], ...updates };
+    onChange({ ...node, foreignKeys: newFks });
+  };
+
+  const handleRemoveForeignKey = (index: number) => {
+    const newFks = (node.foreignKeys || []).filter((_, i) => i !== index);
+    onChange({ ...node, foreignKeys: newFks });
   };
 
   const handleAddChild = () => {
@@ -751,6 +777,79 @@ export const MigrationNode = ({
                 </ShTable>
               </div>
             )}
+
+            {/* Chaves Estrangeiras */}
+            {!isRoot && (
+              <div className="rounded-md border p-3 space-y-3 bg-primary/5 border-primary/20">
+                <div className="flex items-center justify-between">
+                  <ShLabel className="text-[10px] font-bold uppercase text-primary flex items-center gap-1.5">
+                    <LinkIcon className="w-3 h-3" />
+                    Chaves Estrangeiras (Relação com Pai)
+                  </ShLabel>
+                  <ShButton
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddForeignKey}
+                    className="h-7 text-[10px] border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Adicionar FK
+                  </ShButton>
+                </div>
+
+                {node.foreignKeys && node.foreignKeys.length > 0 ? (
+                  <div className="space-y-2">
+                    {node.foreignKeys.map((fk, index) => (
+                      <div key={index} className="flex items-center gap-3 bg-background p-2 rounded border border-primary/10">
+                        <div className="flex-1 space-y-1">
+                          <ShLabel className="text-[9px] text-muted-foreground uppercase">Coluna Local</ShLabel>
+                          <ShSelect
+                            value={fk.localColumn}
+                            onValueChange={(value) => handleUpdateForeignKey(index, { localColumn: value })}
+                          >
+                            {currentColumns.map((col) => (
+                              <ShSelectItem key={col} value={col}>
+                                {col}
+                              </ShSelectItem>
+                            ))}
+                          </ShSelect>
+                        </div>
+                        <div className="flex flex-col items-center justify-center pt-4">
+                          <ChevronRight className="w-4 h-4 text-primary opacity-50" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <ShLabel className="text-[9px] text-muted-foreground uppercase">Coluna no Pai</ShLabel>
+                          <ShSelect
+                            value={fk.parentColumn}
+                            onValueChange={(value) => handleUpdateForeignKey(index, { parentColumn: value })}
+                          >
+                            {parentColumns.map((col) => (
+                              <ShSelectItem key={col} value={col}>
+                                {col}
+                              </ShSelectItem>
+                            ))}
+                          </ShSelect>
+                        </div>
+                        <div className="pt-4">
+                          <ShButton
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleRemoveForeignKey(index)}
+                            className="text-destructive h-8 w-8"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </ShButton>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Nenhuma chave estrangeira definida para este nodo.
+                  </p>
+                )}
+              </div>
+            )}
           </ShCardContent>
         )}
       </ShCard>
@@ -763,6 +862,7 @@ export const MigrationNode = ({
             targetDb={targetDb}
             onChange={(updated) => handleUpdateChild(index, updated)}
             onRemove={() => handleRemoveChild(index)}
+            parentColumns={currentColumns}
           />
         ))}
     </div>

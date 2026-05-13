@@ -12,6 +12,7 @@ import java.util.Map;
 import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.ForeignKeyDefinition;
 
 public interface MigrationWriter {
 
@@ -28,12 +29,16 @@ public interface MigrationWriter {
      *            linhas já mapeadas — chave = nome da coluna de destino
      * @param columnTypes
      *            mapa de coluna de destino → FieldMapping com tipo declarado
+     * @param foreignKeys
+     *            lista de chaves estrangeiras para este nodo (apenas para SQL)
      */
     void write(
             String connectionKey,
             String targetName,
             List<Map<String, Object>> rows,
-            Map<String, FieldMapping> columnTypes);
+            Map<String, FieldMapping> columnTypes,
+            List<ForeignKeyDefinition> foreignKeys,
+            String parentTableName);
 
     /**
      * Definições de tipos nativos deste adapter com especificação de parâmetros

@@ -69,9 +69,9 @@ class SharePointMigrationJobTest {
     private static final Long JOB_ID = 42L;
     private static final Map<String, FieldMapping> FIELD_MAPPINGS = Map.of(
             "Title",
-            new FieldMapping("title", ColumnType.TEXT, null, false),
+            new FieldMapping("title", ColumnType.TEXT, null, false, false),
             "Amount",
-            new FieldMapping("amount", ColumnType.NUMBER, null, false));
+            new FieldMapping("amount", ColumnType.NUMBER, null, false, false));
 
     @BeforeEach
     void setUpContext() {
@@ -156,7 +156,7 @@ class SharePointMigrationJobTest {
         migrationJob.execute(context);
 
         ArgumentCaptor<List<Map<String, Object>>> rowsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(writer).write(eq("MYSQL_PROD"), eq("test_table"), rowsCaptor.capture(), any());
+        verify(writer).write(eq("MYSQL_PROD"), eq("test_table"), rowsCaptor.capture(), any(), anyList(), any());
 
         List<Map<String, Object>> rows = rowsCaptor.getValue();
         assertThat(rows).hasSize(1);

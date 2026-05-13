@@ -52,7 +52,7 @@ class MigrationJobServiceTest {
     private MigrationJobService service;
 
     private static final Map<String, FieldMapping> FIELD_MAPPINGS =
-            Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null, false));
+            Map.of("Title", new FieldMapping("title", ColumnType.TEXT, null, false, false));
 
     private static final JobNode ROOT_NODE =
             new JobNode(null, "site-123", "list-456", "test_table", FIELD_MAPPINGS, Map.of(), List.of(), List.of());

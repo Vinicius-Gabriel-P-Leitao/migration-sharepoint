@@ -8,10 +8,18 @@
 package org.migration.sharepoint.core.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.controller.job.dto.JobRequest;
 import org.migration.sharepoint.controller.job.dto.JobResponse;
 import org.migration.sharepoint.controller.job.dto.LogResponse;
+import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.ForeignKeyDefinition;
 import org.migration.sharepoint.data.model.JobNode;
 import org.migration.sharepoint.data.model.MigrationJob;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
@@ -43,7 +51,7 @@ public class MigrationJobService {
     @Transactional
     public JobResponse create(JobRequest request) {
         validateScheduleFields(request);
-        validateNode(request.migration(), "migration");
+        validateNode(request.migration(), "migration", List.of());
         connectionRegistry.resolveUrl(request.connectionKey());
         MigrationJob job = jobRepository.save(fromRequest(request));
         quartzSchedulerService.schedule(job);
@@ -53,7 +61,7 @@ public class MigrationJobService {
     @Transactional
     public JobResponse update(Long id, JobRequest request) {
         validateScheduleFields(request);
-        validateNode(request.migration(), "migration");
+        validateNode(request.migration(), "migration", List.of());
         connectionRegistry.resolveUrl(request.connectionKey());
         MigrationJob job = findOrThrow(id);
         applyRequest(job, request);
@@ -106,24 +114,78 @@ public class MigrationJobService {
         }
     }
 
-    private void validateNode(JobNode node, String path) {
-        if (node.siteId() == null || node.siteId().isBlank()) {
-            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.siteId não pode ser vazio".formatted(path));
-        }
-        if (node.listId() == null || node.listId().isBlank()) {
-            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.listId não pode ser vazio".formatted(path));
-        }
-        if (node.tableName() == null || node.tableName().isBlank()) {
-            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.tableName não pode ser vazio".formatted(path));
-        }
+    private void validateNode(JobNode node, String path, List<String> availableParentColumns) {
+        validateRequiredNodeMetadata(node, path);
+
+        List<String> availableNodeColumns = extractAvailableColumns(node);
+
+        validateForeignKeyIntegrity(node, path, availableParentColumns, availableNodeColumns);
+        validateChildrenRecursively(node, path, availableNodeColumns);
+    }
+
+    private void validateRequiredNodeMetadata(JobNode node, String path) {
+        if (isStringEmpty(node.siteId())) throwBadRequest("%s.siteId não pode ser vazio".formatted(path));
+        if (isStringEmpty(node.listId())) throwBadRequest("%s.listId não pode ser vazio".formatted(path));
+        if (isStringEmpty(node.tableName())) throwBadRequest("%s.tableName não pode ser vazio".formatted(path));
         if (node.fieldMappings() == null || node.fieldMappings().isEmpty()) {
-            throw new BadRequestException(ErrorCode.BAD_REQUEST, "%s.fieldMappings não pode ser vazio".formatted(path));
+            throwBadRequest("%s.fieldMappings não pode ser vazio".formatted(path));
         }
-        if (node.children() != null) {
-            for (int nodeIndex = 0; nodeIndex < node.children().size(); nodeIndex++) {
-                validateNode(node.children().get(nodeIndex), "%s.children[%d]".formatted(path, nodeIndex));
+    }
+
+    private List<String> extractAvailableColumns(JobNode node) {
+        Stream<String> mappedColumns = node.fieldMappings().values().stream()
+                .map(FieldMapping::column);
+
+        Stream<String> customColumns = Optional.ofNullable(node.customFields())
+                .map(Map::keySet)
+                .map(Set::stream)
+                .orElse(Stream.empty());
+
+        return Stream.concat(mappedColumns, customColumns)
+                .filter(Objects::nonNull)
+                .filter(column -> !column.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private void validateForeignKeyIntegrity(
+            JobNode node, String path, List<String> availableParentColumns, List<String> availableNodeColumns) {
+        List<ForeignKeyDefinition> foreignKeys = Optional.ofNullable(node.foreignKeys()).orElse(List.of());
+        if (foreignKeys.isEmpty()) return;
+
+        if (availableParentColumns.isEmpty()) {
+            throwBadRequest("%s não pode ter chaves estrangeiras pois é o nodo raiz".formatted(path));
+        }
+
+        IntStream.range(0, foreignKeys.size()).forEach(index -> {
+            ForeignKeyDefinition foreignKey = foreignKeys.get(index);
+            String foreignKeyPath = "%s.foreignKeys[%d]".formatted(path, index);
+
+            if (!availableNodeColumns.contains(foreignKey.localColumn())) {
+                throwBadRequest(
+                        "%s.localColumn '%s' não existe no nodo".formatted(foreignKeyPath, foreignKey.localColumn()));
             }
-        }
+            if (!availableParentColumns.contains(foreignKey.parentColumn())) {
+                throwBadRequest(
+                        "%s.parentColumn '%s' não existe no nodo pai".formatted(foreignKeyPath, foreignKey.parentColumn()));
+            }
+        });
+    }
+
+    private void validateChildrenRecursively(JobNode node, String path, List<String> availableNodeColumns) {
+        List<JobNode> children = Optional.ofNullable(node.children()).orElse(List.of());
+        IntStream.range(0, children.size()).forEach(index -> {
+            String childPath = "%s.children[%d]".formatted(path, index);
+            validateNode(children.get(index), childPath, availableNodeColumns);
+        });
+    }
+
+    private boolean isStringEmpty(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private void throwBadRequest(String message) {
+        throw new BadRequestException(ErrorCode.BAD_REQUEST, message);
     }
 
     private MigrationJob findOrThrow(Long id) {

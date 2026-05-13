@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.data.enums.ColumnType;
 import org.migration.sharepoint.data.enums.TargetDb;
 import org.migration.sharepoint.data.model.FieldMapping;
+import org.migration.sharepoint.data.model.ForeignKeyDefinition;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.ConflictException;
@@ -106,7 +107,9 @@ public class MySqlMigrationWriter implements MigrationWriter {
             String connectionKey,
             String targetName,
             List<Map<String, Object>> rows,
-            Map<String, FieldMapping> columnTypes) {
+            Map<String, FieldMapping> columnTypes,
+            List<ForeignKeyDefinition> foreignKeys,
+            String parentTableName) {
         validateTableName(targetName);
         validateNoNestedPaths(rows);
 
@@ -114,7 +117,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
             String catalog = conn.getCatalog();
 
             // Synchronize o schema: CRIA a tabela se não existir usando a CONFIGURATION do Job
-            createTableIfAbsent(conn, catalog, targetName, columnTypes);
+            createTableIfAbsent(conn, catalog, targetName, columnTypes, foreignKeys, parentTableName);
 
             if (rows.isEmpty()) {
                 log.info(
@@ -149,7 +152,12 @@ public class MySqlMigrationWriter implements MigrationWriter {
     }
 
     private void createTableIfAbsent(
-            Connection connection, String catalog, String tableName, Map<String, FieldMapping> columnTypes)
+            Connection connection,
+            String catalog,
+            String tableName,
+            Map<String, FieldMapping> columnTypes,
+            List<ForeignKeyDefinition> foreignKeys,
+            String parentTableName)
             throws SQLException {
 
         try (PreparedStatement checkStatement = connection.prepareStatement(
@@ -206,6 +214,23 @@ public class MySqlMigrationWriter implements MigrationWriter {
                         .append(", UNIQUE (")
                         .append(statement.enquoteIdentifier(uniqueColumn, true))
                         .append(")");
+            }
+
+            // Adiciona Foreign Keys se houver contexto de pai
+            if (parentTableName != null && foreignKeys != null && !foreignKeys.isEmpty()) {
+                String quotedParent = statement.enquoteIdentifier(parentTableName, true);
+                for (ForeignKeyDefinition fk : foreignKeys) {
+                    columnDefs
+                            .append(", CONSTRAINT ")
+                            .append(statement.enquoteIdentifier("fk_%s_%s".formatted(tableName, fk.localColumn()), true))
+                            .append(" FOREIGN KEY (")
+                            .append(statement.enquoteIdentifier(fk.localColumn(), true))
+                            .append(") REFERENCES ")
+                            .append(quotedParent)
+                            .append(" (")
+                            .append(statement.enquoteIdentifier(fk.parentColumn(), true))
+                            .append(")");
+                }
             }
 
             statement.execute("CREATE TABLE %s (%s)".formatted(quotedTable, columnDefs));
@@ -294,11 +319,15 @@ public class MySqlMigrationWriter implements MigrationWriter {
             Map<String, FieldMapping> columnTypes)
             throws SQLException {
         conn.setAutoCommit(false);
-        try {
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute("DELETE FROM %s".formatted(stmt.enquoteIdentifier(tableName, true)));
-            }
+        try (Statement stmt = conn.createStatement()) {
+            // Desabilita checagem de FK para permitir o DELETE/REPLACE de uma árvore complexa
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+
+            stmt.execute("DELETE FROM %s".formatted(stmt.enquoteIdentifier(tableName, true)));
+
             batchInsert(conn, tableName, columns, rows, columnTypes);
+
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
             conn.commit();
         } catch (SQLException sqlException) {
             try {

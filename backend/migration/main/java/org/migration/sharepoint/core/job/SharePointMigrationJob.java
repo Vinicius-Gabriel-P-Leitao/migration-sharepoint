@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.data.enums.JobStatus;
 import org.migration.sharepoint.data.enums.ScheduleType;
@@ -54,6 +55,7 @@ public class SharePointMigrationJob implements Job {
     public void execute(JobExecutionContext context) throws JobExecutionException {
         Long jobId = context.getJobDetail().getJobDataMap().getLong("jobId");
         MDC.put("jobId", String.valueOf(jobId));
+
         try {
             executeInternal(jobId, context);
         } finally {
@@ -76,11 +78,16 @@ public class SharePointMigrationJob implements Job {
 
         try {
             JobNode rootNode = job.getMigration();
-            int total = syncNode(rootNode, job.getConnectionKey(), job.getTargetDb(), job.getPageSize(), jobId);
+            int total = syncNode(rootNode, job.getConnectionKey(), job.getTargetDb(), job.getPageSize(), jobId, null);
 
             if (rootNode.children() != null && !rootNode.children().isEmpty()) {
                 total += syncTree(
-                        rootNode.children(), job.getConnectionKey(), job.getTargetDb(), job.getPageSize(), jobId);
+                        rootNode.children(),
+                        job.getConnectionKey(),
+                        job.getTargetDb(),
+                        job.getPageSize(),
+                        jobId,
+                        rootNode.tableName());
             }
 
             migrationLog.setStatus(JobStatus.SUCCESS);
@@ -111,13 +118,22 @@ public class SharePointMigrationJob implements Job {
         }
     }
 
-    private int syncNode(JobNode node, String connectionKey, TargetDb targetDb, int pageSize, Long jobId) {
+    private Object generateCustomValue(CustomFieldDefinition definition) {
+        return switch (definition.function()) {
+            case CURRENT_TIMESTAMP_UTC_3 -> OffsetDateTime.now(ZONE_BR).toLocalDateTime();
+            case CURRENT_DATE_BR -> OffsetDateTime.now(ZONE_BR).toLocalDate();
+            case UUID_GEN -> UUID.randomUUID().toString();
+            case STATIC_VALUE -> definition.staticValue();
+        };
+    }
+
+    private int syncNode(JobNode node, String connectionKey, TargetDb targetDb, int pageSize, Long jobId, String parentTableName) {
         List<Map<String, Object>> rawData = graphClient.fetchListItems(
                 node.siteId(), node.listId(), node.fieldMappings().keySet(), pageSize);
 
         List<Map<String, Object>> mappedData = applyFieldMapping(rawData, node.fieldMappings(), jobId);
 
-        // Injetamos campos virtuais (Custom Fields)
+        // Injeta campos virtuais (Custom Fields)
         if (node.customFields() != null && !node.customFields().isEmpty()) {
             injectCustomFields(mappedData, node.customFields());
         }
@@ -125,7 +141,7 @@ public class SharePointMigrationJob implements Job {
         Map<String, FieldMapping> allMappings = new HashMap<>();
         node.fieldMappings().values().forEach(fm -> allMappings.put(fm.column(), fm));
 
-        // Custom fields also need to be known by the writer for DDL
+        // Os campos personalizados também precisam ser conhecidos pelo autor da DDL
         Map<String, FieldMapping> combinedTypes = new HashMap<>(allMappings);
         if (node.customFields() != null) {
             node.customFields().values().forEach(customField -> {
@@ -137,7 +153,7 @@ public class SharePointMigrationJob implements Job {
         }
 
         MigrationWriter writer = writerRegistry.get(targetDb);
-        writer.write(connectionKey, node.tableName(), mappedData, combinedTypes);
+        writer.write(connectionKey, node.tableName(), mappedData, combinedTypes, node.foreignKeys(), parentTableName);
 
         log.info("Job id={} Nodo={}: {} registros migrados", jobId, node.tableName(), mappedData.size());
         return mappedData.size();
@@ -151,24 +167,18 @@ public class SharePointMigrationJob implements Job {
         });
     }
 
-    private Object generateCustomValue(CustomFieldDefinition definition) {
-        return switch (definition.function()) {
-            case CURRENT_TIMESTAMP_UTC_3 -> OffsetDateTime.now(ZONE_BR).toLocalDateTime();
-            case CURRENT_DATE_BR -> OffsetDateTime.now(ZONE_BR).toLocalDate();
-            case UUID_GEN -> UUID.randomUUID().toString();
-            case STATIC_VALUE -> definition.staticValue();
-        };
-    }
-
-    private int syncTree(List<JobNode> nodes, String connectionKey, TargetDb targetDb, int pageSize, Long jobId) {
+    private int syncTree(List<JobNode> nodes, String connectionKey, TargetDb targetDb, int pageSize, Long jobId, String parentTableName) {
         if (nodes == null || nodes.isEmpty()) return 0;
 
+        // INFO: Usamos virtual thread para api mais atual do java e trabalhamos com futures
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Integer>> futures = new ArrayList<>(nodes.size());
+
             for (JobNode node : nodes) {
                 futures.add(executor.submit(() -> {
-                    int count = syncNode(node, connectionKey, targetDb, pageSize, jobId);
-                    count += syncTree(node.children(), connectionKey, targetDb, pageSize, jobId);
+                    int count = syncNode(node, connectionKey, targetDb, pageSize, jobId, parentTableName);
+                    count += syncTree(node.children(), connectionKey, targetDb, pageSize, jobId, node.tableName());
+
                     return count;
                 }));
             }
@@ -177,10 +187,11 @@ public class SharePointMigrationJob implements Job {
             for (Future<Integer> future : futures) {
                 try {
                     total += future.get();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+                } catch (Exception exception) {
+                    throw new RuntimeException(exception);
                 }
             }
+
             return total;
         }
     }
@@ -201,6 +212,7 @@ public class SharePointMigrationJob implements Job {
         List<Map<String, Object>> mappedRows = rows.stream()
                 .map(row -> {
                     Map<String, Object> outputRow = new LinkedHashMap<>();
+
                     row.forEach((actualKey, value) -> {
                         FieldMapping mapping = normalizedMappings.get(actualKey.toLowerCase());
                         if (mapping != null) {
