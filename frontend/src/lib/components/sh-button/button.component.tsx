@@ -12,7 +12,7 @@ export const ShButton = React.forwardRef<HTMLButtonElement, ShButtonProps>(
         {children}
       </Button>
     );
-  }
+  },
 );
 
 ShButton.displayName = 'ShButton';

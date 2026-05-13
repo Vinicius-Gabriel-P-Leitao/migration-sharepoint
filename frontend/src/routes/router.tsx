@@ -45,11 +45,7 @@ const logsRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  layoutRoute.addChildren([
-    homeRoute,
-    connectionsRoute,
-    logsRoute,
-  ]),
+  layoutRoute.addChildren([homeRoute, connectionsRoute, logsRoute]),
 ]);
 
 export const router = createRouter({ routeTree });

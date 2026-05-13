@@ -22,7 +22,11 @@ import {
 import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
 import { ShBadge } from '@lib/components/sh-badge/badge.component';
 import { ShSeparator } from '@lib/components/sh-separator/separator.component';
-import { ShTooltip, ShTooltipContent, ShTooltipTrigger } from '@lib/components/sh-tooltip/tooltip.component';
+import {
+  ShTooltip,
+  ShTooltipContent,
+  ShTooltipTrigger,
+} from '@lib/components/sh-tooltip/tooltip.component';
 import { CreateJobDialog } from './components/create-job.component';
 import { EditJobSheet } from './components/edit-job.component';
 import type { JobResponse, ScheduleType } from './jobs.type';
@@ -40,7 +44,10 @@ import {
 import { toast } from 'sonner';
 import { JobLogsSheet } from './components/job-logs.component';
 
-const scheduleMeta: Record<ScheduleType, { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' }> = {
+const scheduleMeta: Record<
+  ScheduleType,
+  { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' }
+> = {
   MANUAL: { label: 'Manual', variant: 'secondary' },
   INTERVAL: { label: 'Intervalo', variant: 'default' },
   CRON: { label: 'Cron', variant: 'warning' },
@@ -49,7 +56,7 @@ const scheduleMeta: Record<ScheduleType, { label: string; variant: 'default' | '
 
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(
-    new Date(iso)
+    new Date(iso),
   );
 
 export const JobsRoute = () => {
@@ -169,7 +176,9 @@ export const JobsRoute = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {jobs.map((job) => {
               const schedule = scheduleMeta[job.scheduleType as ScheduleType];
-              const fieldCount = job.migration ? Object.keys(job.migration.fieldMappings).length : 0;
+              const fieldCount = job.migration
+                ? Object.keys(job.migration.fieldMappings).length
+                : 0;
               return (
                 <ShCard key={job.id} className="flex flex-col">
                   <ShCardHeader className="pb-3">
@@ -193,11 +202,12 @@ export const JobsRoute = () => {
                         {job.scheduleType === 'INTERVAL' && job.intervalValue
                           ? `A cada ${job.intervalValue} ${job.intervalUnit}`
                           : job.scheduleType === 'CRON' && job.cronExpression
-                          ? job.cronExpression
-                          : schedule.label}
+                            ? job.cronExpression
+                            : schedule.label}
                       </div>
                       <div className="text-right">
-                        {fieldCount} campo{fieldCount !== 1 ? 's' : ''} mapeado{fieldCount !== 1 ? 's' : ''}
+                        {fieldCount} campo{fieldCount !== 1 ? 's' : ''} mapeado
+                        {fieldCount !== 1 ? 's' : ''}
                       </div>
                     </div>
                     <div className="text-[11px] text-muted-foreground">

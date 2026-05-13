@@ -106,7 +106,10 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
           ) : (
             <div className="divide-y">
               {logs.map((log) => (
-                <div key={log.id} className="px-6 py-4 space-y-2 hover:bg-muted/20 transition-colors">
+                <div
+                  key={log.id}
+                  className="px-6 py-4 space-y-2 hover:bg-muted/20 transition-colors"
+                >
                   <div className="flex items-start gap-3">
                     <StatusIcon status={log.status} />
                     <div className="flex-1 min-w-0">

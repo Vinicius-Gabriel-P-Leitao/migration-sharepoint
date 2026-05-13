@@ -11,7 +11,12 @@ import {
   ShSheetTitle,
   ShSheetDescription,
 } from '@lib/components/sh-sheet/sheet.component';
-import { ShTabs, ShTabsList, ShTabsTrigger, ShTabsContent } from '@lib/components/sh-tabs/tabs.component';
+import {
+  ShTabs,
+  ShTabsList,
+  ShTabsTrigger,
+  ShTabsContent,
+} from '@lib/components/sh-tabs/tabs.component';
 import { ShInput } from '@lib/components/sh-input/input.component';
 import { ShLabel } from '@lib/components/sh-label/label.component';
 import { ShSelect, ShSelectItem } from '@lib/components/sh-select/select.component';
@@ -36,7 +41,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
   const [pageSize, setPageSize] = useState(1000);
   const [scheduleType, setScheduleType] = useState<ScheduleType>('MANUAL');
   const [intervalValue, setIntervalValue] = useState(1);
-  const [intervalUnit, setIntervalUnit] = useState<typeof INTERVAL_UNITS[number]>('HOURS');
+  const [intervalUnit, setIntervalUnit] = useState<(typeof INTERVAL_UNITS)[number]>('HOURS');
   const [cronExpression, setCronExpression] = useState('');
   const [migration, setMigration] = useState<JobNode | null>(null);
 
@@ -59,7 +64,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
       setPageSize(job.pageSize);
       setScheduleType(job.scheduleType);
       setIntervalValue(job.intervalValue ?? 1);
-      setIntervalUnit((job.intervalUnit as typeof INTERVAL_UNITS[number]) ?? 'HOURS');
+      setIntervalUnit((job.intervalUnit as (typeof INTERVAL_UNITS)[number]) ?? 'HOURS');
       setCronExpression(job.cronExpression ?? '');
       setMigration(job.migration);
     }, 0);
@@ -133,7 +138,9 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                     onValueChange={(value) => setTargetDb(value as TargetDb)}
                   >
                     {TARGET_DBS.map((db) => (
-                      <ShSelectItem key={db} value={db}>{db}</ShSelectItem>
+                      <ShSelectItem key={db} value={db}>
+                        {db}
+                      </ShSelectItem>
                     ))}
                   </ShSelect>
                 </div>
@@ -162,7 +169,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                     onChange={(event) => setPageSize(parseInt(event.target.value) || 1000)}
                   />
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <ShLabel>Agendamento</ShLabel>
                   <ShSelect
@@ -191,10 +198,14 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
                     <ShLabel>Unidade</ShLabel>
                     <ShSelect
                       value={intervalUnit}
-                      onValueChange={(value) => setIntervalUnit(value as typeof INTERVAL_UNITS[number])}
+                      onValueChange={(value) =>
+                        setIntervalUnit(value as (typeof INTERVAL_UNITS)[number])
+                      }
                     >
                       {INTERVAL_UNITS.map((unit) => (
-                        <ShSelectItem key={unit} value={unit}>{unit}</ShSelectItem>
+                        <ShSelectItem key={unit} value={unit}>
+                          {unit}
+                        </ShSelectItem>
                       ))}
                     </ShSelect>
                   </div>
@@ -233,7 +244,11 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
               Cancelar
             </ShButton>
             <ShButton onClick={handleSave} disabled={!canSave || updateJob.isPending}>
-              {updateJob.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {updateJob.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
               Salvar Alterações
             </ShButton>
           </ShSheetFooter>

@@ -4,10 +4,7 @@ import { Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { ShSidebar } from '@lib/components/sh-sidebar/sidebar.component';
 import { ShButton } from '@lib/components/sh-button/button.component';
-import {
-  Drawer,
-  DrawerContent,
-} from '@lib/components/ui/drawer';
+import { Drawer, DrawerContent } from '@lib/components/ui/drawer';
 
 export const ShLayoutComponent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

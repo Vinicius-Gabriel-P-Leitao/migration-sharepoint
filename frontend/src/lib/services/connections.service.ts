@@ -21,5 +21,5 @@ export const connectionsService = {
   },
   delete: async (key: string): Promise<void> => {
     await apiClient.delete(`/connections/${key}`);
-  }
+  },
 };

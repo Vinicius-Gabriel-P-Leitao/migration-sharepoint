@@ -1,57 +1,46 @@
-import { useState } from "react";
-import { useJobs, useJobLogs } from "@lib/hooks/jobs.hook";
-import {
-  ShSelect,
-  ShSelectItem,
-} from "@lib/components/sh-select/select.component";
-import { ShButton } from "@lib/components/sh-button/button.component";
-import { ShBadge } from "@lib/components/sh-badge/badge.component";
-import { ShSkeleton } from "@lib/components/sh-skeleton/skeleton.component";
-import { ShCard, ShCardContent } from "@lib/components/sh-card/card.component";
-import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  RefreshCw,
-  ScrollText,
-} from "lucide-react";
-import type { LogResponse } from "@routes/jobs/jobs.type";
+import { useState } from 'react';
+import { useJobs, useJobLogs } from '@lib/hooks/jobs.hook';
+import { ShSelect, ShSelectItem } from '@lib/components/sh-select/select.component';
+import { ShButton } from '@lib/components/sh-button/button.component';
+import { ShBadge } from '@lib/components/sh-badge/badge.component';
+import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
+import { ShCard, ShCardContent } from '@lib/components/sh-card/card.component';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, ScrollText } from 'lucide-react';
+import type { LogResponse } from '@routes/jobs/jobs.type';
 
 const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+  new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   }).format(new Date(iso));
 
 const formatDuration = (start: string, end?: string): string => {
-  if (!end) return "Em execução...";
+  if (!end) return 'Em execução...';
   const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (ms < 0) return "—";
+  if (ms < 0) return '—';
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s`;
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 };
 
-const StatusIcon = ({ status }: { status: LogResponse["status"] }) => {
-  if (status === "SUCCESS")
-    return <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />;
-  if (status === "FAILED")
-    return <XCircle className="w-5 h-5 text-destructive shrink-0" />;
+const StatusIcon = ({ status }: { status: LogResponse['status'] }) => {
+  if (status === 'SUCCESS') return <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />;
+  if (status === 'FAILED') return <XCircle className="w-5 h-5 text-destructive shrink-0" />;
   return <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />;
 };
 
-const badgeVariant = (status: LogResponse["status"]) => {
-  if (status === "SUCCESS") return "success" as const;
-  if (status === "FAILED") return "destructive" as const;
-  return "running" as const;
+const badgeVariant = (status: LogResponse['status']) => {
+  if (status === 'SUCCESS') return 'success' as const;
+  if (status === 'FAILED') return 'destructive' as const;
+  return 'running' as const;
 };
 
 export const LogsRoute = () => {
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
 
   const { data: jobs, isLoading: loadingJobs } = useJobs();
   const {
@@ -70,20 +59,11 @@ export const LogsRoute = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Audit Logs</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Histórico de execuções por job.
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Histórico de execuções por job.</p>
         </div>
         {selectedJobId && (
-          <ShButton
-            variant="outline"
-            size="icon"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
-            />
+          <ShButton variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
           </ShButton>
         )}
       </div>
@@ -94,9 +74,7 @@ export const LogsRoute = () => {
           <ShSelect
             value={selectedJobId}
             onValueChange={setSelectedJobId}
-            placeholder={
-              loadingJobs ? "Carregando jobs..." : "Selecione um job..."
-            }
+            placeholder={loadingJobs ? 'Carregando jobs...' : 'Selecione um job...'}
             disabled={loadingJobs}
           >
             {jobs?.map((j) => (
@@ -118,9 +96,7 @@ export const LogsRoute = () => {
         <ShCard className="border-dashed">
           <ShCardContent className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <ScrollText className="w-12 h-12 opacity-20" />
-            <p className="text-sm">
-              Selecione um job acima para ver o histórico de execuções.
-            </p>
+            <p className="text-sm">Selecione um job acima para ver o histórico de execuções.</p>
           </ShCardContent>
         </ShCard>
       )}
@@ -157,9 +133,7 @@ export const LogsRoute = () => {
         <ShCard className="border-dashed">
           <ShCardContent className="py-14 flex flex-col items-center gap-3 text-muted-foreground">
             <ScrollText className="w-10 h-10 opacity-20" />
-            <p className="text-sm">
-              Nenhuma execução registrada para este job.
-            </p>
+            <p className="text-sm">Nenhuma execução registrada para este job.</p>
             <p className="text-xs">Execute o job para ver o histórico aqui.</p>
           </ShCardContent>
         </ShCard>
@@ -168,9 +142,7 @@ export const LogsRoute = () => {
       {/* Log entries */}
       {selectedJobId && !loadingLogs && logs && logs.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            {logs.length} execução(ões) encontrada(s)
-          </p>
+          <p className="text-xs text-muted-foreground">{logs.length} execução(ões) encontrada(s)</p>
           {logs.map((log) => (
             <ShCard key={log.id} className="overflow-hidden">
               <ShCardContent className="py-0">
@@ -178,21 +150,15 @@ export const LogsRoute = () => {
                   <StatusIcon status={log.status} />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <ShBadge variant={badgeVariant(log.status)}>
-                        {log.status}
-                      </ShBadge>
+                      <ShBadge variant={badgeVariant(log.status)}>{log.status}</ShBadge>
                       <span className="text-xs font-medium text-muted-foreground">
                         {formatDuration(log.startedAt, log.finishedAt)}
                       </span>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        #{log.id}
-                      </span>
+                      <span className="text-xs text-muted-foreground ml-auto">#{log.id}</span>
                     </div>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <p>Início: {formatDate(log.startedAt)}</p>
-                      {log.finishedAt && (
-                        <p>Fim: {formatDate(log.finishedAt)}</p>
-                      )}
+                      {log.finishedAt && <p>Fim: {formatDate(log.finishedAt)}</p>}
                     </div>
                     {log.errorMessage && (
                       <div className="mt-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">

@@ -4,7 +4,11 @@ export type TargetDb = 'MYSQL' | 'POSTGRESQL' | 'MONGODB';
 export type IntervalUnit = 'MINUTES' | 'HOURS' | 'DAYS';
 export type CanonicalType = 'TEXT' | 'NUMBER' | 'DECIMAL' | 'BOOLEAN' | 'DATE' | 'DATETIME';
 
-export type CustomFunction = 'CURRENT_TIMESTAMP_UTC_3' | 'CURRENT_DATE_BR' | 'UUID_GEN' | 'STATIC_VALUE';
+export type CustomFunction =
+  | 'CURRENT_TIMESTAMP_UTC_3'
+  | 'CURRENT_DATE_BR'
+  | 'UUID_GEN'
+  | 'STATIC_VALUE';
 
 export interface FieldMapping {
   column: string;

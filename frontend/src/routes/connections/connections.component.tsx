@@ -31,8 +31,16 @@ import {
 import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
 import { ShInput } from '@lib/components/sh-input/input.component';
 import { ShLabel } from '@lib/components/sh-label/label.component';
-import { ShTooltip, ShTooltipContent, ShTooltipTrigger } from '@lib/components/sh-tooltip/tooltip.component';
-import { useConnections, useCreateConnection, useDeleteConnection } from '@lib/hooks/connections.hook';
+import {
+  ShTooltip,
+  ShTooltipContent,
+  ShTooltipTrigger,
+} from '@lib/components/sh-tooltip/tooltip.component';
+import {
+  useConnections,
+  useCreateConnection,
+  useDeleteConnection,
+} from '@lib/hooks/connections.hook';
 import type { ConnectionSummary } from '@lib/services/connections.service';
 import { Plus, Trash2, Database, Loader2, Key } from 'lucide-react';
 import { toast } from 'sonner';
@@ -188,7 +196,13 @@ export const ConnectionsRoute = () => {
       </div>
 
       {/* Add connection dialog */}
-      <ShDialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) reset(); }}>
+      <ShDialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) reset();
+        }}
+      >
         <ShDialogContent className="sm:max-w-md">
           <ShDialogHeader>
             <ShDialogTitle>Nova Conexão</ShDialogTitle>
@@ -226,7 +240,14 @@ export const ConnectionsRoute = () => {
               {errors.url && <p className="text-xs text-destructive">{errors.url.message}</p>}
             </div>
             <ShDialogFooter>
-              <ShButton type="button" variant="outline" onClick={() => { setAddOpen(false); reset(); }}>
+              <ShButton
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddOpen(false);
+                  reset();
+                }}
+              >
                 Cancelar
               </ShButton>
               <ShButton type="submit" disabled={createMutation.isPending}>
@@ -247,9 +268,8 @@ export const ConnectionsRoute = () => {
           <ShAlertDialogHeader>
             <ShAlertDialogTitle>Remover conexão?</ShAlertDialogTitle>
             <ShAlertDialogDescription>
-              A conexão{' '}
-              <span className="font-mono font-semibold">{keyToDelete}</span> será removida da
-              memória. Jobs que a referenciam falharão na próxima execução.
+              A conexão <span className="font-mono font-semibold">{keyToDelete}</span> será removida
+              da memória. Jobs que a referenciam falharão na próxima execução.
             </ShAlertDialogDescription>
           </ShAlertDialogHeader>
           <ShAlertDialogFooter>
