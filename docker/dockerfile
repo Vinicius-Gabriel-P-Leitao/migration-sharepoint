@@ -1,0 +1,40 @@
+# Dockerfile for migration-sharepoint
+# Build from project root: docker build -t migration-app -f docker/dockerfile .
+
+FROM node:25-alpine AS frontend-build
+
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM openjdk:25-ea-jdk-slim AS backend-build
+
+WORKDIR /app
+
+COPY backend/gradlew .
+COPY backend/gradle gradle
+COPY backend/build.gradle.kts .
+COPY backend/settings.gradle.kts .
+
+# Copy the migration module
+COPY backend/migration migration
+
+# Create static resources directory and copy frontend build
+RUN mkdir -p migration/main/resources/static
+COPY --from=frontend-build /app/frontend/dist/ migration/main/resources/static/
+
+RUN chmod +x gradlew
+RUN ./gradlew :migration:bootJar --no-daemon
+
+FROM openjdk:25-ea-slim
+
+WORKDIR /app
+COPY --from=backend-build /app/migration/build/libs/migration-0.0.1-SNAPSHOT.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

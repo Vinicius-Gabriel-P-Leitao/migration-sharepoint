@@ -1,0 +1,27 @@
+/*
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Copyright (c) 2026 Vinícius Gabriel Pereira Leitão
+ * Licensed under the BSD 3-Clause License.
+ * See LICENSE file in the project root for full license information.
+ */
+package org.migration.sharepoint.data.model;
+
+import java.util.List;
+import java.util.Map;
+import lombok.*;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class JobNode {
+    private String sharepointUrl;
+    private String siteId;
+    private String listId;
+    private String tableName;
+    private Map<String, FieldMapping> fieldMappings;
+    private Map<String, CustomFieldDefinition> customFields;
+    private List<ForeignKeyDefinition> foreignKeys;
+    private List<JobNode> children;
+}
