@@ -1,0 +1,52 @@
+/*
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Copyright (c) 2026 Vinícius Gabriel Pereira Leitão
+ * Licensed under the BSD 3-Clause License.
+ * See LICENSE file in the project root for full license information.
+ */
+package org.migration.sharepoint.infra.exception;
+
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
+
+@Getter
+public enum ErrorCode {
+    NOT_FOUND(HttpStatus.NOT_FOUND, "Not Found"),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+    BAD_REQUEST(HttpStatus.BAD_REQUEST, "Bad Request"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error"),
+    PASSWORD_RESET_REQUIRED(HttpStatus.FORBIDDEN, "Troca de senha obrigatória no primeiro acesso"),
+
+    JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "Job não encontrado"),
+    TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Tabela não encontrada no banco de destino"),
+    MIGRATION_CONFLICT(HttpStatus.CONFLICT, "Conflito de integridade na migração"),
+    MIGRATION_NULL_VIOLATION(HttpStatus.CONFLICT, "Campo obrigatório recebeu valor nulo do SharePoint"),
+    MIGRATION_EMPTY_MAPPING(
+            HttpStatus.BAD_REQUEST, "Nenhum campo do fieldMappings encontrado nos dados retornados pelo SharePoint"),
+
+    GRAPH_API_ERROR(HttpStatus.BAD_GATEWAY, "Erro ao comunicar com a Microsoft Graph API"),
+    GRAPH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Token da Graph API inválido ou expirado"),
+    GRAPH_FORBIDDEN(HttpStatus.FORBIDDEN, "Sem permissão para acessar o recurso no SharePoint"),
+    GRAPH_SITE_OR_LIST_NOT_FOUND(HttpStatus.NOT_FOUND, "Site ou lista do SharePoint não encontrado"),
+    GRAPH_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit atingido na Microsoft Graph API"),
+    GRAPH_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Microsoft Graph API indisponível (erro 5xx)"),
+    GRAPH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Timeout na comunicação com a Graph API"),
+
+    TARGET_DB_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "Banco de dados de destino não suportado"),
+    DB_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, "Erro de conexão com o banco de dados de destino"),
+
+    CONNECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "Conexão não encontrada no registry"),
+    CONNECTION_KEY_CONFLICT(HttpStatus.CONFLICT, "Chave de conexão já registrada"),
+
+    SHAREPOINT_INVALID_URL(HttpStatus.BAD_REQUEST, "URL do SharePoint inválida ou não reconhecida");
+
+    private final HttpStatus httpStatus;
+    private final String message;
+
+    ErrorCode(HttpStatus httpStatus, String message) {
+        this.httpStatus = httpStatus;
+        this.message = message;
+    }
+}
