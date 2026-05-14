@@ -9,6 +9,4 @@ package org.migration.sharepoint.controller.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record FirstChangePasswordRequest(
-    @NotBlank String newPassword
-) {}
+public record FirstChangePasswordRequest(@NotBlank String newPassword) {}

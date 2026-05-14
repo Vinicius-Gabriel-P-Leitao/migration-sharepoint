@@ -31,10 +31,8 @@ public class MdcFilter extends OncePerRequestFilter {
     private static final String CLIENT_IP_KEY = "clientIp";
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         try {
             String requestId = UUID.randomUUID().toString().substring(0, 8);

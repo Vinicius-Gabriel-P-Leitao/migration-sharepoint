@@ -75,20 +75,20 @@ public class HttpExceptionHandler {
         log.warn("Erro de validação em {} campos: {}", fieldErrors.size(), fieldErrors);
 
         return buildErrorResponse(
-                "Erro de validação nos campos informados: %s".formatted(fieldErrors),
-                HttpStatus.BAD_REQUEST);
+                "Erro de validação nos campos informados: %s".formatted(fieldErrors), HttpStatus.BAD_REQUEST);
     }
 
     /**
      * Trata falhas de autenticação (Usuário/Senha incorretos).
      */
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleBadCredentials(BadCredentialsException badCredentialsException) {
+    public ResponseEntity<@NonNull DataObjectError> handleBadCredentials(
+            BadCredentialsException badCredentialsException) {
         String errorMessage = badCredentialsException.getMessage();
         if (errorMessage == null || errorMessage.isBlank() || errorMessage.equalsIgnoreCase("Bad credentials")) {
             errorMessage = "Usuário ou senha inválidos";
         }
-        
+
         log.info("Tentativa de login com credenciais inválidas: {}", errorMessage);
         return buildErrorResponse(errorMessage, HttpStatus.UNAUTHORIZED);
     }
@@ -106,7 +106,8 @@ public class HttpExceptionHandler {
      * Trata erro de usuário não encontrado.
      */
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleUsernameNotFound(UsernameNotFoundException userNotFoundException) {
+    public ResponseEntity<@NonNull DataObjectError> handleUsernameNotFound(
+            UsernameNotFoundException userNotFoundException) {
         log.info("Usuário não encontrado: {}", userNotFoundException.getMessage());
         return buildErrorResponse(userNotFoundException.getMessage(), HttpStatus.UNAUTHORIZED);
     }
@@ -115,7 +116,8 @@ public class HttpExceptionHandler {
      * Trata falhas genéricas de autenticação no nível de Controller.
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleAuthenticationException(AuthenticationException authException) {
+    public ResponseEntity<@NonNull DataObjectError> handleAuthenticationException(
+            AuthenticationException authException) {
         log.error("Falha de autenticação: {}", authException.getMessage());
         return buildErrorResponse("Acesso não autorizado ou sessão expirada.", HttpStatus.UNAUTHORIZED);
     }
@@ -124,7 +126,8 @@ public class HttpExceptionHandler {
      * Trata requisições para rotas que não existem (Spring Boot 3.2+).
      */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleNoResourceFound(NoResourceFoundException resourceNotFoundException) {
+    public ResponseEntity<@NonNull DataObjectError> handleNoResourceFound(
+            NoResourceFoundException resourceNotFoundException) {
         log.warn("Recurso não encontrado: {}", resourceNotFoundException.getResourcePath());
         return buildErrorResponse("O recurso solicitado não foi encontrado no servidor", HttpStatus.NOT_FOUND);
     }
@@ -143,7 +146,8 @@ public class HttpExceptionHandler {
      * HttpOnly).
      */
     @ExceptionHandler(MissingRequestCookieException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleMissingCookie(MissingRequestCookieException missingCookieException) {
+    public ResponseEntity<@NonNull DataObjectError> handleMissingCookie(
+            MissingRequestCookieException missingCookieException) {
         log.warn("Cookie obrigatório ausente: {}", missingCookieException.getCookieName());
         return buildErrorResponse("Sessão inválida ou expirada. Faça login novamente.", HttpStatus.UNAUTHORIZED);
     }
@@ -156,17 +160,23 @@ public class HttpExceptionHandler {
             MissingServletRequestParameterException missingParamException) {
         log.warn("Parâmetro obrigatório ausente: {}", missingParamException.getParameterName());
         return buildErrorResponse(
-                "O parâmetro '%s' é obrigatório".formatted(missingParamException.getParameterName()), HttpStatus.BAD_REQUEST);
+                "O parâmetro '%s' é obrigatório".formatted(missingParamException.getParameterName()),
+                HttpStatus.BAD_REQUEST);
     }
 
     /**
      * Trata erros de tipo de argumento inválido (ex: string onde se espera long).
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleTypeMismatch(MethodArgumentTypeMismatchException typeMismatchException) {
-        log.warn("Tipo de argumento inválido para o parâmetro {}: {}", typeMismatchException.getName(), typeMismatchException.getValue());
+    public ResponseEntity<@NonNull DataObjectError> handleTypeMismatch(
+            MethodArgumentTypeMismatchException typeMismatchException) {
+        log.warn(
+                "Tipo de argumento inválido para o parâmetro {}: {}",
+                typeMismatchException.getName(),
+                typeMismatchException.getValue());
         return buildErrorResponse(
-                "Valor inválido para o parâmetro '%s'".formatted(typeMismatchException.getName()), HttpStatus.BAD_REQUEST);
+                "Valor inválido para o parâmetro '%s'".formatted(typeMismatchException.getName()),
+                HttpStatus.BAD_REQUEST);
     }
 
     /**
@@ -183,7 +193,8 @@ public class HttpExceptionHandler {
      * Trata violações de integridade no banco de dados.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleDataIntegrity(DataIntegrityViolationException integrityException) {
+    public ResponseEntity<@NonNull DataObjectError> handleDataIntegrity(
+            DataIntegrityViolationException integrityException) {
         log.error(
                 "Conflito de integridade de dados: {}",
                 integrityException.getMostSpecificCause().getMessage());

@@ -9,11 +9,9 @@ package org.migration.sharepoint.infra.graph;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.net.URI;
 import java.time.Instant;
 import java.util.*;
-
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
@@ -155,8 +153,7 @@ public class GraphClient {
     // SharePoint URL resolver
     // -------------------------------------------------------------------------
 
-    public record SharePointResolveResult(String siteId, String listId, List<String> columns) {
-    }
+    public record SharePointResolveResult(String siteId, String listId, List<String> columns) {}
 
     /**
      * Recebe uma URL de lista SharePoint no formato do browser e retorna siteId,
@@ -281,32 +278,25 @@ public class GraphClient {
     @JsonIgnoreProperties(ignoreUnknown = true)
     record GraphResponse(
             List<GraphItem> value,
-            @JsonProperty("@odata.nextLink") String nextLink) {
-    }
+            @JsonProperty("@odata.nextLink") String nextLink) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record GraphItem(Map<String, Object> fields) {
-    }
+    record GraphItem(Map<String, Object> fields) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record TokenResponse(
             @JsonProperty("access_token") String accessToken,
-            @JsonProperty("expires_in") long expiresIn) {
-    }
+            @JsonProperty("expires_in") long expiresIn) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record SiteResponse(String id) {
-    }
+    record SiteResponse(String id) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ListMetaResponse(String id) {
-    }
+    record ListMetaResponse(String id) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ColumnItem(String name, boolean hidden) {
-    }
+    record ColumnItem(String name, boolean hidden) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ColumnsResponse(List<ColumnItem> value) {
-    }
+    record ColumnsResponse(List<ColumnItem> value) {}
 }

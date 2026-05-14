@@ -7,6 +7,8 @@
  */
 package org.migration.sharepoint.infra.config;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.infra.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
@@ -24,8 +26,6 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
-
 @Configuration
 @RequiredArgsConstructor
 public class ServerSecurityConfig {
@@ -34,23 +34,58 @@ public class ServerSecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeHttpRequests(matcherRegistry -> matcherRegistry
-                        .requestMatchers("/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .anyRequest().hasAuthority("ROLE_ADMIN"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(matcherRegistry -> matcherRegistry
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/favicon.ico",
+                                "/error",
+                                "/assets/**",
+                                "/**/*.js",
+                                "/**/*.css",
+                                "/**/*.html",
+                                "/**/*.svg",
+                                "/**/*.png",
+                                "/**/*.jpg",
+                                "/**/*.jpeg",
+                                "/**/*.webp",
+                                "/**/*.ico",
+                                "/**/*.woff",
+                                "/**/*.woff2",
+                                "/**/*.ttf")
+                        .permitAll()
+                        .requestMatchers("/v1/auth/**")
+                        .permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**")
+                        .permitAll()
+                        .requestMatchers("/actuator/health")
+                        .permitAll()
+                        .anyRequest()
+                        .hasAuthority("ROLE_ADMIN"))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> {
                     headers.httpStrictTransportSecurity(
-                            hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000));
-                    headers.contentSecurityPolicy(
-                            csp -> csp.policyDirectives(
-                                    "default-src 'self'; script-src 'self' 'unsafe-inline' chrome-extension: moz-extension:; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests;"));
+                            it -> it.includeSubDomains(true).maxAgeInSeconds(31536000));
+                    headers.contentSecurityPolicy(csp -> csp.policyDirectives("""
+                            default-src 'self';
+                            script-src 'self' 'unsafe-inline' chrome-extension: moz-extension:;
+                            style-src 'self' 'unsafe-inline';
+                            img-src 'self' data: blob:;
+                            font-src 'self' data:;
+                            connect-src 'self';
+                            object-src 'none';
+                            frame-ancestors 'none';
+                            upgrade-insecure-requests;
+                            """));
+
                     headers.referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
                     headers.permissionsPolicyHeader(
-                            permissions -> permissions.policy("camera=(), geolocation=(), microphone=(), payment=()"));
+                            it -> it.policy("camera=(), geolocation=(), microphone=(), payment=()"));
                     headers.crossOriginOpenerPolicy(coop -> coop.policy(CrossOriginOpenerPolicy.SAME_ORIGIN));
                     headers.crossOriginResourcePolicy(corp -> corp.policy(CrossOriginResourcePolicy.SAME_ORIGIN));
                 });
@@ -60,12 +95,14 @@ public class ServerSecurityConfig {
 
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOrigins(List.of("https://sharepoint-migrator.secexpessoal.org"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("X-New-Access-Token", "Set-Cookie"));
+        configuration.setExposedHeaders(List.of("X-New-Access-Token", "Set-Cookie", "Authorization"));
         configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

@@ -36,16 +36,14 @@ import org.springframework.stereotype.Component;
 public class MySqlMigrationWriter implements MigrationWriter {
 
     private static final ZoneId ZONE_BR = ZoneId.of("America/Sao_Paulo");
-private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP = Map.of(
-        ColumnType.TEXT, "LONGTEXT",
-        ColumnType.NUMBER, "BIGINT",
-        ColumnType.INTEGER, "INT",
-        ColumnType.DECIMAL, "DECIMAL(19,4)",
-        ColumnType.BOOLEAN, "TINYINT(1)",
-        ColumnType.DATE, "DATE",
-        ColumnType.DATETIME, "DATETIME(3)"
-);
-
+    private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP = Map.of(
+            ColumnType.TEXT, "LONGTEXT",
+            ColumnType.NUMBER, "BIGINT",
+            ColumnType.INTEGER, "INT",
+            ColumnType.DECIMAL, "DECIMAL(19,4)",
+            ColumnType.BOOLEAN, "TINYINT(1)",
+            ColumnType.DATE, "DATE",
+            ColumnType.DATETIME, "DATETIME(3)");
 
     private static final List<NativeTypeDefinition> MYSQL_TYPE_DEFS = List.of(
             new NativeTypeDefinition("TINYINT", List.of()),
