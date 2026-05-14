@@ -11,6 +11,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.migration.sharepoint.controller.auth.dto.AuthenticationResponse;
@@ -21,10 +24,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -72,8 +71,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void setSecurityContext(AuthenticationResponse.UserResponse profile) {
         if (profile.roles() != null && profile.roles().contains("ROLE_ADMIN")) {
-            List<SimpleGrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"));
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(profile.profile().username(), null, authorities);
+            List<SimpleGrantedAuthority> authorities =
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(profile.profile().username(), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
     }

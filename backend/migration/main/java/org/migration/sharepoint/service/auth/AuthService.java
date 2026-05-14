@@ -48,7 +48,8 @@ public class AuthService {
     public AuthenticationResponse login(AuthenticationRequest authRequest, HttpServletResponse authResponse) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
-        ResponseEntity<AuthenticationResponse> externalResponse = restClient.post()
+        ResponseEntity<AuthenticationResponse> externalResponse = restClient
+                .post()
                 .uri("/v1/user/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(authRequest)
@@ -72,7 +73,9 @@ public class AuthService {
                 .toEntity(AuthenticationResponse.class);
 
         AuthenticationResponse authData = externalResponse.getBody();
-        if (authData == null || authData.user() == null || !authData.user().roles().contains("ROLE_ADMIN")) {
+        if (authData == null
+                || authData.user() == null
+                || !authData.user().roles().contains("ROLE_ADMIN")) {
             throw new ForbiddenException("Acesso negado: O usuário não possui privilégios de administrador");
         }
 
@@ -87,7 +90,8 @@ public class AuthService {
     public Map<String, String> firstReset(String accessToken, FirstChangePasswordRequest resetRequest) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
-        return restClient.post()
+        return restClient
+                .post()
                 .uri("/v1/password/first-change")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -99,7 +103,8 @@ public class AuthService {
     public AuthenticationResponse.UserResponse validateToken(String accessToken) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
-        return restClient.get()
+        return restClient
+                .get()
                 .uri("/v1/user/profile")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
@@ -109,10 +114,12 @@ public class AuthService {
                 .body(AuthenticationResponse.UserResponse.class);
     }
 
-    public AuthenticationResponse.UserSessionResponse refresh(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+    public AuthenticationResponse.UserSessionResponse refresh(
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
-        String refreshTokenCookie = Arrays.stream(Optional.ofNullable(httpRequest.getCookies()).orElse(new Cookie[0]))
+        String refreshTokenCookie = Arrays.stream(
+                        Optional.ofNullable(httpRequest.getCookies()).orElse(new Cookie[0]))
                 .filter(cookie -> "refresh_token".equals(cookie.getName()))
                 .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                 .findFirst()
@@ -122,7 +129,8 @@ public class AuthService {
             throw new BadCredentialsException("Nenhum token de atualização encontrado");
         }
 
-        ResponseEntity<AuthenticationResponse> refreshResponse = restClient.post()
+        ResponseEntity<AuthenticationResponse> refreshResponse = restClient
+                .post()
                 .uri("/v1/user/refresh")
                 .header(HttpHeaders.COOKIE, refreshTokenCookie)
                 .retrieve()
@@ -142,7 +150,8 @@ public class AuthService {
     public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
-        String refreshTokenCookie = Arrays.stream(Optional.ofNullable(httpRequest.getCookies()).orElse(new Cookie[0]))
+        String refreshTokenCookie = Arrays.stream(
+                        Optional.ofNullable(httpRequest.getCookies()).orElse(new Cookie[0]))
                 .filter(cookie -> "refresh_token".equals(cookie.getName()))
                 .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                 .findFirst()
@@ -150,7 +159,8 @@ public class AuthService {
 
         if (refreshTokenCookie != null) {
             try {
-                restClient.post()
+                restClient
+                        .post()
                         .uri("/v1/user/logout")
                         .header(HttpHeaders.COOKIE, refreshTokenCookie)
                         .retrieve()

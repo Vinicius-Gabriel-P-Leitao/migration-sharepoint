@@ -12,23 +12,9 @@ import java.util.UUID;
 
 public record AuthenticationResponse(UserSessionResponse session, UserResponse user) {
 
-    public record UserSessionResponse(
-        String accessToken,
-        Integer tokenVersion,
-        boolean passwordResetRequired
-    ) {}
+    public record UserSessionResponse(String accessToken, Integer tokenVersion, boolean passwordResetRequired) {}
 
-    public record UserResponse(
-        UUID id,
-        String email,
-        boolean active,
-        List<String> roles,
-        ProfileDto profile
-    ) {}
+    public record UserResponse(UUID id, String email, boolean active, List<String> roles, ProfileDto profile) {}
 
-    public record ProfileDto(
-        String username,
-        String registration,
-        String position
-    ) {}
+    public record ProfileDto(String username, String registration, String position) {}
 }
