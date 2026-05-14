@@ -5,14 +5,11 @@
  * Licensed under the BSD 3-Clause License.
  * See LICENSE file in the project root for full license information.
  */
-package org.migration.sharepoint.data.enums;
+package org.migration.sharepoint.controller.auth.dto;
 
-public enum ColumnType {
-    TEXT,
-    NUMBER,
-    INTEGER,
-    DECIMAL,
-    BOOLEAN,
-    DATE,
-    DATETIME
-}
+import jakarta.validation.constraints.NotBlank;
+
+public record AuthenticationRequest(
+    @NotBlank String email,
+    @NotBlank String password
+) {}

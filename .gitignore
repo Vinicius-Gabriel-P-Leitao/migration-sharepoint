@@ -4,3 +4,4 @@
 /backend/main/resources/sharepoint.db
 /backend/main/resources/sharepoint.db-shm
 /backend/main/resources/sharepoint.db-wal
+/docker/.env

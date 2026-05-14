@@ -1,9 +1,12 @@
-import { createRouter, createRoute, createRootRoute, Outlet } from '@tanstack/react-router';
+import { createRouter, createRoute, createRootRoute, Outlet, redirect } from '@tanstack/react-router';
 import { AppProvider } from '@lib/app.provider';
 import { ShLayoutComponent } from '@lib/components/sh-layout/layout.component';
 import { JobsRoute } from './jobs/jobs.component';
 import { ConnectionsRoute } from './connections/connections.component';
 import { LogsRoute } from './logs/logs.component';
+import { LoginPage } from './auth/login/login.component';
+import { ResetPasswordPage } from './auth/reset-password/reset-password.component';
+import { useAuthStore } from '@lib/store/auth.store';
 
 // Root Route
 const rootRoute = createRootRoute({
@@ -16,11 +19,40 @@ const rootRoute = createRootRoute({
   ),
 });
 
-// Layout Route
+// Auth Routes (Public)
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginPage,
+  beforeLoad: () => {
+    const { isAuthenticated, passwordResetRequired } = useAuthStore.getState();
+    if (isAuthenticated) {
+      if (passwordResetRequired) throw redirect({ to: '/reset-password' });
+      throw redirect({ to: '/' });
+    }
+  },
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: ResetPasswordPage,
+});
+
+// Layout Route (Protected)
 const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'layout',
   component: ShLayoutComponent,
+  beforeLoad: () => {
+    const { isAuthenticated, passwordResetRequired } = useAuthStore.getState();
+    if (!isAuthenticated) {
+      throw redirect({ to: '/login' });
+    }
+    if (passwordResetRequired) {
+      throw redirect({ to: '/reset-password' });
+    }
+  },
 });
 
 // Home (Jobs) Route
@@ -45,6 +77,8 @@ const logsRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
+  loginRoute,
+  resetPasswordRoute,
   layoutRoute.addChildren([homeRoute, connectionsRoute, logsRoute]),
 ]);
 

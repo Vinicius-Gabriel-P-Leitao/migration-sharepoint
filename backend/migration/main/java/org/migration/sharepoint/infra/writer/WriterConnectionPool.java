@@ -164,6 +164,15 @@ public class WriterConnectionPool implements DisposableBean {
 
     private record ParsedUrl(String url, String username, String password) {}
 
+    public void resetPool(String connectionKey) {
+        failedKeys.remove(connectionKey);
+        HikariDataSource ds = pools.remove(connectionKey);
+        if (ds != null) {
+            log.info("Resetando pool de conexões para key={}", connectionKey);
+            ds.close();
+        }
+    }
+
     @Override
     public void destroy() {
         log.info("Fechando {} pool(s) de conexões do writer", pools.size());

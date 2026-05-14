@@ -36,14 +36,16 @@ import org.springframework.stereotype.Component;
 public class MySqlMigrationWriter implements MigrationWriter {
 
     private static final ZoneId ZONE_BR = ZoneId.of("America/Sao_Paulo");
+private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP = Map.of(
+        ColumnType.TEXT, "LONGTEXT",
+        ColumnType.NUMBER, "BIGINT",
+        ColumnType.INTEGER, "INT",
+        ColumnType.DECIMAL, "DECIMAL(19,4)",
+        ColumnType.BOOLEAN, "TINYINT(1)",
+        ColumnType.DATE, "DATE",
+        ColumnType.DATETIME, "DATETIME(3)"
+);
 
-    private static final Map<ColumnType, String> MYSQL_CANONICAL_MAP = Map.of(
-            ColumnType.TEXT, "TEXT",
-            ColumnType.NUMBER, "BIGINT",
-            ColumnType.DECIMAL, "DOUBLE",
-            ColumnType.BOOLEAN, "TINYINT(1)",
-            ColumnType.DATE, "DATE",
-            ColumnType.DATETIME, "DATETIME");
 
     private static final List<NativeTypeDefinition> MYSQL_TYPE_DEFS = List.of(
             new NativeTypeDefinition("TINYINT", List.of()),
@@ -121,7 +123,6 @@ public class MySqlMigrationWriter implements MigrationWriter {
         try (Statement statement = connection.createStatement()) {
             statement.execute("SET FOREIGN_KEY_CHECKS = 0");
             try {
-                statement.execute("TRUNCATE TABLE " + enquote(statement, table));
                 T result = supplier.get();
                 connection.commit();
                 return result;
@@ -207,6 +208,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
         // Handle empty strings for numeric/date types by returning NULL
         if (value instanceof String str && str.trim().isEmpty()) {
             if (mapping.getType() == ColumnType.NUMBER
+                    || mapping.getType() == ColumnType.INTEGER
                     || mapping.getType() == ColumnType.DECIMAL
                     || mapping.getType() == ColumnType.DATE
                     || mapping.getType() == ColumnType.DATETIME) {
@@ -216,7 +218,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
 
         return switch (mapping.getType()) {
             case BOOLEAN -> handleBool(value);
-            case NUMBER -> handleNum(value);
+            case NUMBER, INTEGER -> handleNum(value);
             case DATE, DATETIME -> handleDate(value, mapping);
             default -> value;
         };

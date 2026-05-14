@@ -7,19 +7,8 @@
  */
 package org.migration.sharepoint.core.job;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.migration.sharepoint.data.enums.CustomFunction;
-import org.migration.sharepoint.data.enums.JobStatus;
-import org.migration.sharepoint.data.enums.ScheduleType;
-import org.migration.sharepoint.data.enums.TargetDb;
+import org.migration.sharepoint.data.enums.*;
 import org.migration.sharepoint.data.model.*;
 import org.migration.sharepoint.data.repository.MigrationJobRepository;
 import org.migration.sharepoint.data.repository.MigrationLogRepository;
@@ -33,6 +22,15 @@ import org.migration.sharepoint.infra.writer.MigrationWriterRegistry;
 import org.quartz.*;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @DisallowConcurrentExecution
@@ -56,11 +54,15 @@ public class SharePointMigrationJob implements Job {
     public void execute(JobExecutionContext context) throws JobExecutionException {
         Long jobId = context.getJobDetail().getJobDataMap().getLong("jobId");
         MDC.put("jobId", String.valueOf(jobId));
+        MDC.put("requestId", "system");
+        MDC.put("clientIp", "internal");
 
         try {
             executeInternal(jobId, context);
         } finally {
             MDC.remove("jobId");
+            MDC.remove("requestId");
+            MDC.remove("clientIp");
         }
     }
 
@@ -342,7 +344,7 @@ public class SharePointMigrationJob implements Job {
                         customField.getColumn(),
                         new FieldMapping(
                                 customField.getColumn(),
-                                customField.getType(),
+                                customField.getFunction() == CustomFunction.AUTO_INCREMENT ? ColumnType.INTEGER : customField.getType(),
                                 customField.getNativeType(),
                                 customField.isPrimaryKey(),
                                 customField.isUniqueKey(),

@@ -116,6 +116,10 @@ public class ConnectionRegistry {
         log.info("Conexão removida: key={}", key);
     }
 
+    public boolean exists(String key) {
+        return registry.containsKey(key);
+    }
+
     private String cleanAndValidateUrl(String url, String key) {
         String cleaned = url.strip();
         boolean valid = VALID_URL_PREFIXES.stream().anyMatch(cleaned::startsWith);

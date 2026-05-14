@@ -1,12 +1,13 @@
 /*
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Copyright (c) 2025 Vinícius Gabriel Pereira Leitão
+ * Copyright (c) 2026 Vinícius Gabriel Pereira Leitão
  * Licensed under the BSD 3-Clause License.
  * See LICENSE file in the project root for full license information.
  */
 package org.migration.sharepoint.infra.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
@@ -29,75 +30,79 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Filtro de Rate Limiting para proteger a API contra abusos.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> bucketCache = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
     @Value("${security.rate-limit.enabled:true}")
-    private boolean enabled;
+    private boolean rateLimitEnabled;
 
     @Override
     protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
+            @NonNull HttpServletRequest httpRequest,
+            @NonNull HttpServletResponse httpResponse,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-        String path = request.getRequestURI();
+        
+        String requestPath = httpRequest.getRequestURI();
 
-        if (enabled) {
-            String ip = RequestUtil.getClientIP(request);
-            Bucket bucket = resolveBucket(ip);
+        if (rateLimitEnabled) {
+            String clientIp = RequestUtil.getClientIP(httpRequest);
+            Bucket limitBucket = resolveBucket(clientIp);
 
-            if (!bucket.tryConsume(1)) {
-                log.warn("Rate limit excedido para o IP: {} na rota: {}", ip, path);
-                sendRateLimitErrorResponse(request, response);
+            if (!limitBucket.tryConsume(1)) {
+                log.warn("Rate limit excedido para o IP: {} na rota: {}", clientIp, requestPath);
+                sendRateLimitError(httpRequest, httpResponse);
                 return;
             }
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(httpRequest, httpResponse);
     }
 
-    private Bucket resolveBucket(String ip) {
-        return cache.computeIfAbsent(ip, this::createNewBucket);
+    private Bucket resolveBucket(String ipAddress) {
+        return bucketCache.computeIfAbsent(ipAddress, this::createNewBucket);
     }
 
-    private Bucket createNewBucket(String ip) {
-        Bandwidth limit = Bandwidth.builder()
+    private Bucket createNewBucket(String ipAddress) {
+        Bandwidth rateLimit = Bandwidth.builder()
                 .capacity(100)
                 .refillGreedy(100, Duration.ofMinutes(1))
                 .build();
-        return Bucket.builder().addLimit(limit).build();
+        return Bucket.builder().addLimit(rateLimit).build();
     }
 
-    private void sendRateLimitErrorResponse(HttpServletRequest request, HttpServletResponse response)
+    private void sendRateLimitError(HttpServletRequest httpRequest, HttpServletResponse httpResponse)
             throws IOException {
-        String uri = request.getRequestURI();
-        boolean isApiRoute = uri != null && uri.startsWith("/v1/");
+        String requestUri = httpRequest.getRequestURI();
+        boolean isApiEndpoint = requestUri != null && requestUri.startsWith("/v1/");
 
-        if (!isApiRoute) {
-            response.sendRedirect("/?error_code=429");
+        if (!isApiEndpoint) {
+            httpResponse.sendRedirect("/?error_code=429");
             return;
         }
 
-        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        httpResponse.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        httpResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-        DataObjectError error = DataObjectError.builder()
+        DataObjectError errorResponse = DataObjectError.builder()
                 .timestamp(new Date())
                 .status(HttpStatus.TOO_MANY_REQUESTS.value())
                 .error(HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase())
                 .code(HttpStatus.TOO_MANY_REQUESTS.name())
                 .message("Muitas tentativas de requisição. Por favor, aguarde alguns instantes e tente novamente.")
-                .path(request.getRequestURI())
-                .traceId(MDC.get("traceId"))
+                .path(requestUri)
+                .traceId(MDC.get("requestId"))
                 .build();
-        response.getWriter().write(objectMapper.writeValueAsString(error));
+        
+        httpResponse.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

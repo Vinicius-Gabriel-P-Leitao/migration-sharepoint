@@ -20,6 +20,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -60,57 +61,62 @@ public class HttpExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<@NonNull DataObjectError> handleValidationExceptions(
-            MethodArgumentNotValidException exception) {
-        Map<String, String> errors = new HashMap<>();
+            MethodArgumentNotValidException validationException) {
+        Map<String, String> fieldErrors = new HashMap<>();
 
-        exception.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
+        validationException.getBindingResult().getAllErrors().forEach(error -> {
+            if (error instanceof FieldError fieldError) {
+                fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
+            } else {
+                fieldErrors.put(error.getObjectName(), error.getDefaultMessage());
+            }
         });
 
-        log.warn("Erro de validação em {} campos: {}", errors.size(), errors);
+        log.warn("Erro de validação em {} campos: {}", fieldErrors.size(), fieldErrors);
 
-        HttpServletRequest request =
-                ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-        String traceId = MDC.get("requestId");
-
-        DataObjectError error = DataObjectError.builder()
-                .timestamp(new Date())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .code("VALIDATION_ERROR")
-                .message("Erro de validação nos campos informados: %s".formatted(errors))
-                .path(request.getRequestURI())
-                .traceId(traceId)
-                .build();
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return buildErrorResponse(
+                "Erro de validação nos campos informados: %s".formatted(fieldErrors),
+                HttpStatus.BAD_REQUEST);
     }
 
     /**
      * Trata falhas de autenticação (Usuário/Senha incorretos).
      */
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleBadCredentials(BadCredentialsException exception) {
-        log.info("Tentativa de login com credenciais inválidas.");
-        return buildErrorResponse("Usuário ou senha inválidos", HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<@NonNull DataObjectError> handleBadCredentials(BadCredentialsException badCredentialsException) {
+        String errorMessage = badCredentialsException.getMessage();
+        if (errorMessage == null || errorMessage.isBlank() || errorMessage.equalsIgnoreCase("Bad credentials")) {
+            errorMessage = "Usuário ou senha inválidos";
+        }
+        
+        log.info("Tentativa de login com credenciais inválidas: {}", errorMessage);
+        return buildErrorResponse(errorMessage, HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Trata acesso negado (403 Forbidden).
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<@NonNull DataObjectError> handleAccessDenied(AccessDeniedException accessDeniedException) {
+        log.warn("Acesso negado: {}", accessDeniedException.getMessage());
+        return buildErrorResponse(accessDeniedException.getMessage(), HttpStatus.FORBIDDEN);
     }
 
     /**
      * Trata erro de usuário não encontrado.
      */
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleUsernameNotFound(UsernameNotFoundException exception) {
-        log.info("Usuário não encontrado: {}", exception.getMessage());
-        return buildErrorResponse(exception.getMessage(), HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<@NonNull DataObjectError> handleUsernameNotFound(UsernameNotFoundException userNotFoundException) {
+        log.info("Usuário não encontrado: {}", userNotFoundException.getMessage());
+        return buildErrorResponse(userNotFoundException.getMessage(), HttpStatus.UNAUTHORIZED);
     }
 
     /**
      * Trata falhas genéricas de autenticação no nível de Controller.
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleAuthenticationException(AuthenticationException exception) {
-        log.error("Falha de autenticação: {}", exception.getMessage());
+    public ResponseEntity<@NonNull DataObjectError> handleAuthenticationException(AuthenticationException authException) {
+        log.error("Falha de autenticação: {}", authException.getMessage());
         return buildErrorResponse("Acesso não autorizado ou sessão expirada.", HttpStatus.UNAUTHORIZED);
     }
 
@@ -118,8 +124,8 @@ public class HttpExceptionHandler {
      * Trata requisições para rotas que não existem (Spring Boot 3.2+).
      */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleNoResourceFound(NoResourceFoundException exception) {
-        log.warn("Recurso não encontrado: {}", exception.getResourcePath());
+    public ResponseEntity<@NonNull DataObjectError> handleNoResourceFound(NoResourceFoundException resourceNotFoundException) {
+        log.warn("Recurso não encontrado: {}", resourceNotFoundException.getResourcePath());
         return buildErrorResponse("O recurso solicitado não foi encontrado no servidor", HttpStatus.NOT_FOUND);
     }
 
@@ -127,8 +133,8 @@ public class HttpExceptionHandler {
      * Trata requisições para rotas que não possuem manipulador.
      */
     @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleNotFound(NoHandlerFoundException exception) {
-        log.warn("Rota não encontrada: {}", exception.getRequestURL());
+    public ResponseEntity<@NonNull DataObjectError> handleNotFound(NoHandlerFoundException handlerNotFoundException) {
+        log.warn("Rota não encontrada: {}", handlerNotFoundException.getRequestURL());
         return buildErrorResponse("O recurso solicitado não foi encontrado", HttpStatus.NOT_FOUND);
     }
 
@@ -137,8 +143,8 @@ public class HttpExceptionHandler {
      * HttpOnly).
      */
     @ExceptionHandler(MissingRequestCookieException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleMissingCookie(MissingRequestCookieException exception) {
-        log.warn("Cookie obrigatório ausente: {}", exception.getCookieName());
+    public ResponseEntity<@NonNull DataObjectError> handleMissingCookie(MissingRequestCookieException missingCookieException) {
+        log.warn("Cookie obrigatório ausente: {}", missingCookieException.getCookieName());
         return buildErrorResponse("Sessão inválida ou expirada. Faça login novamente.", HttpStatus.UNAUTHORIZED);
     }
 
@@ -147,20 +153,20 @@ public class HttpExceptionHandler {
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<@NonNull DataObjectError> handleMissingParams(
-            MissingServletRequestParameterException exception) {
-        log.warn("Parâmetro obrigatório ausente: {}", exception.getParameterName());
+            MissingServletRequestParameterException missingParamException) {
+        log.warn("Parâmetro obrigatório ausente: {}", missingParamException.getParameterName());
         return buildErrorResponse(
-                "O parâmetro '%s' é obrigatório".formatted(exception.getParameterName()), HttpStatus.BAD_REQUEST);
+                "O parâmetro '%s' é obrigatório".formatted(missingParamException.getParameterName()), HttpStatus.BAD_REQUEST);
     }
 
     /**
      * Trata erros de tipo de argumento inválido (ex: string onde se espera long).
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
-        log.warn("Tipo de argumento inválido para o parâmetro {}: {}", exception.getName(), exception.getValue());
+    public ResponseEntity<@NonNull DataObjectError> handleTypeMismatch(MethodArgumentTypeMismatchException typeMismatchException) {
+        log.warn("Tipo de argumento inválido para o parâmetro {}: {}", typeMismatchException.getName(), typeMismatchException.getValue());
         return buildErrorResponse(
-                "Valor inválido para o parâmetro '%s'".formatted(exception.getName()), HttpStatus.BAD_REQUEST);
+                "Valor inválido para o parâmetro '%s'".formatted(typeMismatchException.getName()), HttpStatus.BAD_REQUEST);
     }
 
     /**
@@ -168,8 +174,8 @@ public class HttpExceptionHandler {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<@NonNull DataObjectError> handleMethodNotSupported(
-            HttpRequestMethodNotSupportedException exception) {
-        log.warn("Método {} não suportado para a rota.", exception.getMethod());
+            HttpRequestMethodNotSupportedException methodNotSupportedException) {
+        log.warn("Método {} não suportado para a rota.", methodNotSupportedException.getMethod());
         return buildErrorResponse("Método HTTP não suportado para esta rota", HttpStatus.METHOD_NOT_ALLOWED);
     }
 
@@ -177,10 +183,10 @@ public class HttpExceptionHandler {
      * Trata violações de integridade no banco de dados.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<@NonNull DataObjectError> handleDataIntegrity(DataIntegrityViolationException exception) {
+    public ResponseEntity<@NonNull DataObjectError> handleDataIntegrity(DataIntegrityViolationException integrityException) {
         log.error(
                 "Conflito de integridade de dados: {}",
-                exception.getMostSpecificCause().getMessage());
+                integrityException.getMostSpecificCause().getMessage());
         return buildErrorResponse("Erro de integridade de dados ou duplicidade", HttpStatus.CONFLICT);
     }
 
@@ -189,8 +195,8 @@ public class HttpExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<@NonNull DataObjectError> handleMessageNotReadable(
-            HttpMessageNotReadableException exception) {
-        log.warn("Erro de leitura da requisição HTTP: {}", exception.getMessage());
+            HttpMessageNotReadableException notReadableException) {
+        log.warn("Erro de leitura da requisição HTTP: {}", notReadableException.getMessage());
         return buildErrorResponse(
                 "Erro na desserialização do JSON ou corpo da requisição ausente", HttpStatus.BAD_REQUEST);
     }
@@ -199,34 +205,37 @@ public class HttpExceptionHandler {
      * Fallback para qualquer exceção não tratada especificamente (Erro 500).
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<@NonNull DataObjectError> handleGenericException(Exception exception) {
-        log.error("ERRO NÃO TRATADO: ", exception); // Loga o stacktrace completo no servidor
+    public ResponseEntity<@NonNull DataObjectError> handleGenericException(Exception internalException) {
+        log.error("ERRO NÃO TRATADO: ", internalException);
         return buildErrorResponse("Ocorreu um erro interno no servidor", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     private ResponseEntity<@NonNull DataObjectError> buildErrorResponse(String message, HttpStatus status) {
-        HttpServletRequest request = null;
+        HttpServletRequest currentRequest = null;
 
         try {
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) request = attributes.getRequest();
-        } catch (Exception ignored) {
+            if (attributes != null) {
+                currentRequest = attributes.getRequest();
+            }
+        } catch (Exception exception) {
+            log.trace("Não foi possível obter o HttpServletRequest no buildErrorResponse", exception);
         }
 
-        String path = request != null ? request.getRequestURI() : "Unknown path";
+        String requestUri = currentRequest != null ? currentRequest.getRequestURI() : "Unknown path";
         String traceId = MDC.get("requestId");
 
-        DataObjectError error = DataObjectError.builder()
+        DataObjectError errorResponse = DataObjectError.builder()
                 .timestamp(new Date())
                 .status(status.value())
                 .error(status.getReasonPhrase())
                 .code(status.name())
                 .message(message)
-                .path(path)
+                .path(requestUri)
                 .traceId(traceId)
                 .build();
 
-        return new ResponseEntity<>(error, status);
+        return new ResponseEntity<>(errorResponse, status);
     }
 }

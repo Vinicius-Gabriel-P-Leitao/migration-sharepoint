@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.migration.sharepoint.controller.connection.dto.ConnectionRequest;
 import org.migration.sharepoint.infra.connection.ConnectionRegistry;
 import org.migration.sharepoint.infra.connection.ConnectionRegistry.ConnectionSummary;
+import org.migration.sharepoint.infra.writer.WriterConnectionPool;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class ConnectionController {
 
     private final ConnectionRegistry registry;
+    private final WriterConnectionPool connectionPool;
 
     @Operation(
             summary = "Listar conexões registradas",
@@ -69,6 +71,25 @@ public class ConnectionController {
     public ResponseEntity<Void> remove(
             @Parameter(description = "Chave da conexão (ex: MYSQL_PROD)") @PathVariable String key) {
         registry.remove(key);
+        connectionPool.resetPool(key);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Resetar pool de conexões",
+            description =
+                    "Força o fechamento de qualquer pool aberto para esta chave e limpa marcadores de falha de conexão. Útil após corrigir credenciais ou liberar acesso por IP no banco de destino.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Pool resetado com sucesso"),
+        @ApiResponse(responseCode = "404", description = "Key não encontrada")
+    })
+    @PostMapping("/{key}/reset")
+    public ResponseEntity<Void> reset(
+            @Parameter(description = "Chave da conexão (ex: MYSQL_PROD)") @PathVariable String key) {
+        if (!registry.exists(key)) {
+            return ResponseEntity.notFound().build();
+        }
+        connectionPool.resetPool(key);
         return ResponseEntity.noContent().build();
     }
 }

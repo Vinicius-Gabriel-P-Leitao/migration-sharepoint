@@ -60,7 +60,7 @@ const CUSTOM_FUNCTIONS: { label: string; value: CustomFunction }[] = [
   { label: 'Data Atual (BR)', value: 'CURRENT_DATE_BR' },
   { label: 'Gerar UUID', value: 'UUID_GEN' },
   { label: 'ID Incremental (Auto)', value: 'AUTO_INCREMENT' },
-  { label: 'Valor Estático (Texto)', value: 'STATIC_VALUE' },
+  { label: 'Valor Estático', value: 'STATIC_VALUE' },
 ];
 
 const parseNativeType = (fullType: string) => {
@@ -1044,7 +1044,7 @@ const FUNCTION_ALLOWED_TYPES: Record<CustomFunction, string[]> = {
   CURRENT_DATE_BR: ['DATE', 'TEXT'],
   UUID_GEN: ['TEXT'],
   AUTO_INCREMENT: ['NUMBER'],
-  STATIC_VALUE: ['TEXT', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME'],
+  STATIC_VALUE: ['TEXT', 'NUMBER', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME'],
 };
 
 const CustomFieldForm = ({

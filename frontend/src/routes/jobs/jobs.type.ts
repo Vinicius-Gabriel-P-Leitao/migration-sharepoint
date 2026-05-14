@@ -2,7 +2,7 @@ export type JobStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type ScheduleType = 'MANUAL' | 'INTERVAL' | 'CRON' | 'CONTINUOUS';
 export type TargetDb = 'MYSQL' | 'POSTGRESQL' | 'MONGODB';
 export type IntervalUnit = 'MINUTES' | 'HOURS' | 'DAYS';
-export type CanonicalType = 'TEXT' | 'NUMBER' | 'DECIMAL' | 'BOOLEAN' | 'DATE' | 'DATETIME';
+export type CanonicalType = 'TEXT' | 'NUMBER' | 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'DATE' | 'DATETIME';
 
 export type CustomFunction =
   | 'CURRENT_TIMESTAMP_UTC_3'
