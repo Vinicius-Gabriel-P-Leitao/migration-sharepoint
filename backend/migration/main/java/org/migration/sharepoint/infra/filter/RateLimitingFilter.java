@@ -51,7 +51,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse httpResponse,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-        
+
         String requestPath = httpRequest.getRequestURI();
 
         if (rateLimitEnabled) {
@@ -102,7 +102,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                 .path(requestUri)
                 .traceId(MDC.get("requestId"))
                 .build();
-        
+
         httpResponse.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

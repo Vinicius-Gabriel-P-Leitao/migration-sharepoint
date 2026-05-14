@@ -16,5 +16,4 @@ public record ConnectionRequest(
         String key,
 
         @NotBlank String name,
-        @NotBlank String url) {
-}
+        @NotBlank String url) {}

@@ -10,6 +10,4 @@ package org.migration.sharepoint.controller.auth.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public record AuthenticationRequest(
-    @NotBlank String email,
-    @NotBlank String password
-) {}
+        @NotBlank String email, @NotBlank String password) {}

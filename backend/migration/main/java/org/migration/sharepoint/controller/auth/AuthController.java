@@ -31,7 +31,8 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public AuthenticationResponse login(@Valid @RequestBody AuthenticationRequest request, HttpServletResponse response) {
+    public AuthenticationResponse login(
+            @Valid @RequestBody AuthenticationRequest request, HttpServletResponse response) {
         return authService.login(request, response);
     }
 
