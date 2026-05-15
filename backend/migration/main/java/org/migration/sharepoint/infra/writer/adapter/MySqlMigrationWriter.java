@@ -367,7 +367,7 @@ public class MySqlMigrationWriter implements MigrationWriter {
                         .trim())
                 .orElseGet(() -> {
                     String base = MYSQL_CANONICAL_MAP.getOrDefault(mapping.getType(), "TEXT");
-                    return (mapping.isPrimaryKey() && "TEXT".equalsIgnoreCase(base)) ? "VARCHAR(255)" : base;
+                    return (mapping.isPrimaryKey() && base.toUpperCase().contains("TEXT")) ? "VARCHAR(255)" : base;
                 });
     }
 

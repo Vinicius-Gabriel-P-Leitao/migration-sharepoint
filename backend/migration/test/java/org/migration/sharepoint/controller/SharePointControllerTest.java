@@ -13,7 +13,11 @@ import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.migration.sharepoint.infra.graph.GraphClient;
 import org.migration.sharepoint.infra.graph.GraphClient.SharePointResolveResult;
+import org.migration.sharepoint.infra.filter.RateLimitingFilter;
+import org.migration.sharepoint.infra.security.JwtAuthenticationFilter;
+import org.migration.sharepoint.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -21,14 +25,25 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(SharePointController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @TestPropertySource(properties = "security.rate-limit.enabled=false")
 class SharePointControllerTest {
+
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private GraphClient graphClient;
+
+    @MockitoBean
+    private AuthService authService;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private RateLimitingFilter rateLimitingFilter;
 
     // -------------------------------------------------------------------------
     // POST /v1/sharepoint/resolve

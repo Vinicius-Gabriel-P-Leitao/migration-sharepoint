@@ -22,7 +22,11 @@ import org.migration.sharepoint.data.model.JobNode;
 import org.migration.sharepoint.infra.exception.ErrorCode;
 import org.migration.sharepoint.infra.exception.custom.BadRequestException;
 import org.migration.sharepoint.infra.exception.custom.NotFoundException;
+import org.migration.sharepoint.infra.filter.RateLimitingFilter;
+import org.migration.sharepoint.infra.security.JwtAuthenticationFilter;
+import org.migration.sharepoint.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -30,6 +34,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(MigrationJobController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @TestPropertySource(properties = "security.rate-limit.enabled=false")
 class MigrationJobControllerTest {
 
@@ -38,6 +43,15 @@ class MigrationJobControllerTest {
 
     @MockitoBean
     private MigrationJobService service;
+
+    @MockitoBean
+    private AuthService authService;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private RateLimitingFilter rateLimitingFilter;
 
     private static final Map<String, FieldMapping> FIELD_MAPPINGS = Map.of(
             "Title",

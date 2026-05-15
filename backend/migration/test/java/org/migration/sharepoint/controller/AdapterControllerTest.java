@@ -15,13 +15,18 @@ import org.migration.sharepoint.infra.exception.custom.InfrastructureException;
 import org.migration.sharepoint.infra.writer.MigrationWriter;
 import org.migration.sharepoint.infra.writer.MigrationWriterRegistry;
 import org.migration.sharepoint.infra.writer.NativeTypeDefinition;
+import org.migration.sharepoint.infra.filter.RateLimitingFilter;
+import org.migration.sharepoint.infra.security.JwtAuthenticationFilter;
+import org.migration.sharepoint.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AdapterController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @TestPropertySource(properties = "security.rate-limit.enabled=false")
 class AdapterControllerTest {
 
@@ -30,6 +35,15 @@ class AdapterControllerTest {
 
     @MockitoBean
     private MigrationWriterRegistry writerRegistry;
+
+    @MockitoBean
+    private AuthService authService;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private RateLimitingFilter rateLimitingFilter;
 
     // -------------------------------------------------------------------------
     // GET /v1/adapters/{targetDb}/types

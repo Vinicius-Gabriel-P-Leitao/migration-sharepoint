@@ -65,9 +65,12 @@ const CUSTOM_FUNCTIONS: { label: string; value: CustomFunction }[] = [
 
 const parseNativeType = (fullType: string) => {
   const match = fullType.match(/^([^(]+)(?:\((.*)\))?$/);
+
   if (!match) return { base: fullType, params: [] as string[] };
+
   const base = match[1].trim();
   const params = match[2] ? match[2].split(',').map((param) => param.trim()) : [];
+
   return { base, params };
 };
 
@@ -216,7 +219,10 @@ export const MigrationNode = ({
     });
   };
 
-  const handleUpdateForeignKey = (index: number, updates: Partial<{ localColumn: string; parentColumn: string }>) => {
+  const handleUpdateForeignKey = (
+    index: number,
+    updates: Partial<{ localColumn: string; parentColumn: string }>,
+  ) => {
     const newFks = [...(node.foreignKeys || [])];
     newFks[index] = { ...newFks[index], ...updates };
     onChange({ ...node, foreignKeys: newFks });
@@ -269,9 +275,15 @@ export const MigrationNode = ({
       if (!nativeType) return '';
       // Remove AUTO_INCREMENT, PRIMARY KEY, UNIQUE, NOT NULL, etc.
       // Keeps only the base type and optional precision like VARCHAR(255) or DECIMAL(10,2)
-      return nativeType.split(/\s+/).filter(word => 
-        !['AUTO_INCREMENT', 'PRIMARY', 'KEY', 'UNIQUE', 'NOT', 'NULL'].includes(word.toUpperCase())
-      ).join(' ');
+      return nativeType
+        .split(/\s+/)
+        .filter(
+          (word) =>
+            !['AUTO_INCREMENT', 'PRIMARY', 'KEY', 'UNIQUE', 'NOT', 'NULL'].includes(
+              word.toUpperCase(),
+            ),
+        )
+        .join(' ');
     };
 
     const newField: CustomFieldDefinition = {
@@ -286,18 +298,18 @@ export const MigrationNode = ({
 
     // 1. Create the virtual field
     const newCustomFields = { ...node.customFields, [newField.column]: newField };
-    
+
     // 2. Update the localColumn in the current foreign key list
     const newFks = [...(node.foreignKeys || [])];
     newFks[index] = { ...newFks[index], localColumn };
 
     // 3. Batch update the node
-    onChange({ 
-      ...node, 
+    onChange({
+      ...node,
       customFields: newCustomFields,
-      foreignKeys: newFks
+      foreignKeys: newFks,
     });
-    
+
     toast.success(`Campo virtual '${localColumn}' criado para a FK`);
   };
 
@@ -514,7 +526,10 @@ export const MigrationNode = ({
                             />
                           </ShTableCell>
                           <ShTableCell className="py-2.5 px-3 overflow-hidden">
-                            <div className="font-mono text-[13px] font-medium leading-none flex items-center gap-1.5 truncate" title={spColumn}>
+                            <div
+                              className="font-mono text-[13px] font-medium leading-none flex items-center gap-1.5 truncate"
+                              title={spColumn}
+                            >
                               {spColumn}
                             </div>
 
@@ -575,8 +590,10 @@ export const MigrationNode = ({
                                   disabled={!included}
                                   className={cn(
                                     'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2',
-                                    !mapping?.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
-                                    mapping?.nativeType && 'font-bold text-foreground border-primary/30',
+                                    !mapping?.nativeType &&
+                                      'text-muted-foreground italic border-dashed opacity-70',
+                                    mapping?.nativeType &&
+                                      'font-bold text-foreground border-primary/30',
                                   )}
                                 >
                                   <Settings2 className="w-5 h-5 mr-2 opacity-70 shrink-0" />
@@ -722,7 +739,10 @@ export const MigrationNode = ({
                           </ShTableCell>
                           <ShTableCell className="py-2.5 px-3 overflow-hidden">
                             <div className="flex flex-col truncate">
-                              <div className="text-[12px] font-bold text-foreground flex items-center gap-1 truncate" title={customFunction?.label}>
+                              <div
+                                className="text-[12px] font-bold text-foreground flex items-center gap-1 truncate"
+                                title={customFunction?.label}
+                              >
                                 {customFunction?.label || customDef.function}
                               </div>
                               <div className="text-[11px] text-muted-foreground flex items-center gap-1 truncate mt-1">
@@ -772,7 +792,8 @@ export const MigrationNode = ({
                                   size="default"
                                   className={cn(
                                     'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2 border-primary/20',
-                                    !customDef.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
+                                    !customDef.nativeType &&
+                                      'text-muted-foreground italic border-dashed opacity-70',
                                     customDef.nativeType && 'font-bold text-foreground',
                                   )}
                                 >
@@ -909,7 +930,9 @@ export const MigrationNode = ({
                           <div className="flex gap-1">
                             <ShInput
                               value={fk.localColumn}
-                              onChange={(e) => handleUpdateForeignKey(index, { localColumn: e.target.value })}
+                              onChange={(e) =>
+                                handleUpdateForeignKey(index, { localColumn: e.target.value })
+                              }
                               onBlur={(e) => {
                                 const val = e.target.value;
                                 if (val && !currentColumns.includes(val) && fk.parentColumn) {
@@ -918,13 +941,19 @@ export const MigrationNode = ({
                               }}
                               placeholder="ex: fk_id_pai"
                               className={cn(
-                                "h-9 py-0 px-2 text-[13px] font-bold flex-1",
-                                !currentColumns.includes(fk.localColumn) && fk.localColumn && "border-destructive/50 bg-destructive/5"
+                                'h-9 py-0 px-2 text-[13px] font-bold flex-1',
+                                !currentColumns.includes(fk.localColumn) &&
+                                  fk.localColumn &&
+                                  'border-destructive/50 bg-destructive/5',
                               )}
                             />
                             <ShPopover>
                               <ShPopoverTrigger asChild>
-                                <ShButton variant="outline" size="icon-sm" className="h-9 w-9 border-primary/20 shrink-0">
+                                <ShButton
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="h-9 w-9 border-primary/20 shrink-0"
+                                >
                                   <ChevronDown className="w-4 h-4 opacity-50" />
                                 </ShButton>
                               </ShPopoverTrigger>
@@ -933,7 +962,13 @@ export const MigrationNode = ({
                                   {fk.localColumn && !currentColumns.includes(fk.localColumn) && (
                                     <div
                                       className="px-2 py-2 text-xs text-primary font-bold hover:bg-primary/10 cursor-pointer rounded-sm border-b mb-1 flex items-center gap-2"
-                                      onClick={() => handleAutoCreateFKField(index, fk.localColumn, fk.parentColumn)}
+                                      onClick={() =>
+                                        handleAutoCreateFKField(
+                                          index,
+                                          fk.localColumn,
+                                          fk.parentColumn,
+                                        )
+                                      }
                                     >
                                       <Plus className="w-3 h-3" />
                                       Criar virtual: {fk.localColumn}
@@ -944,7 +979,9 @@ export const MigrationNode = ({
                                       <div
                                         key={col}
                                         className="px-2 py-1.5 text-xs hover:bg-primary/10 cursor-pointer rounded-sm"
-                                        onClick={() => handleUpdateForeignKey(index, { localColumn: col })}
+                                        onClick={() =>
+                                          handleUpdateForeignKey(index, { localColumn: col })
+                                        }
                                       >
                                         {col}
                                       </div>
@@ -1130,7 +1167,8 @@ const CustomFieldForm = ({
               onAdd({
                 column: columnName || 'id',
                 type: canonicalType,
-                nativeType: selectedFunction === 'AUTO_INCREMENT' ? 'INT NOT NULL AUTO_INCREMENT' : '',
+                nativeType:
+                  selectedFunction === 'AUTO_INCREMENT' ? 'INT NOT NULL AUTO_INCREMENT' : '',
                 function: selectedFunction,
                 staticValue: selectedFunction === 'STATIC_VALUE' ? staticValue : undefined,
                 primaryKey: selectedFunction === 'AUTO_INCREMENT',
