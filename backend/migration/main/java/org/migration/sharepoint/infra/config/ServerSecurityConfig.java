@@ -46,6 +46,10 @@ public class ServerSecurityConfig {
                 .authorizeHttpRequests(matcherRegistry -> matcherRegistry
                         .requestMatchers(
                                 "/",
+                                "/login",
+                                "/reset-password",
+                                "/connections",
+                                "/logs",
                                 "/index.html",
                                 "/favicon.ico",
                                 "/error",

@@ -14,8 +14,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.migration.sharepoint.controller.auth.dto.AuthenticationResponse;
 import org.migration.sharepoint.service.auth.AuthService;
 import org.springframework.http.HttpHeaders;
@@ -31,9 +34,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final AuthService authService;
+    private final Map<String, Object> refreshLocks = new ConcurrentHashMap<>();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
@@ -48,21 +52,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             AuthenticationResponse.UserResponse profile = authService.validateToken(token);
             setSecurityContext(profile);
-        } catch (Exception e) {
-            log.debug("Token validation failed, attempting refresh: {}", e.getMessage());
-            try {
-                AuthenticationResponse.UserSessionResponse newSession = authService.refresh(request, response);
+        } catch (Exception exception) {
+            log.debug("Token validation failed, attempting refresh: {}", exception.getMessage());
+            
+            // Usamos o token expirado como chave para sincronizar requests idênticos
+            Object lock = refreshLocks.computeIfAbsent(token, k -> new Object());
 
-                if (newSession != null) {
-                    AuthenticationResponse.UserResponse profile = authService.validateToken(newSession.accessToken());
-                    setSecurityContext(profile);
+            synchronized (lock) {
+                try {
+                    // Verifica se um request anterior já resolveu o refresh neste mesmo ciclo
+                    String alreadyRefreshedToken = response.getHeader("X-New-Access-Token");
+                    if (alreadyRefreshedToken != null) {
+                        AuthenticationResponse.UserResponse profile = authService.validateToken(alreadyRefreshedToken);
+                        setSecurityContext(profile);
+                    } else {
+                        AuthenticationResponse newAuthData = authService.refresh(request, response);
 
-                    response.setHeader("X-New-Access-Token", newSession.accessToken());
-                    response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-New-Access-Token");
+                        if (newAuthData != null && newAuthData.session() != null) {
+                            AuthenticationResponse.UserSessionResponse newSession = newAuthData.session();
+                            AuthenticationResponse.UserResponse profile = authService.validateToken(newSession.accessToken());
+                            setSecurityContext(profile);
+
+                            response.setHeader("X-New-Access-Token", newSession.accessToken());
+                            response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-New-Access-Token");
+                        }
+                    }
+                } catch (Exception refreshEx) {
+                    log.debug("Session refresh failed: {}", refreshEx.getMessage());
+                    SecurityContextHolder.clearContext();
+                } finally {
+                    refreshLocks.remove(token);
                 }
-            } catch (Exception refreshEx) {
-                log.debug("Session refresh failed: {}", refreshEx.getMessage());
-                SecurityContextHolder.clearContext();
             }
         }
 
