@@ -19,7 +19,13 @@ interface JobLogsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const statusMeta: Record<JobStatus, { label: string; variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' | 'destructive' }> = {
+const statusMeta: Record<
+  JobStatus,
+  {
+    label: string;
+    variant: 'default' | 'secondary' | 'running' | 'success' | 'warning' | 'destructive';
+  }
+> = {
   RUNNING: { label: 'Rodando', variant: 'running' },
   SUCCESS: { label: 'Sucesso', variant: 'success' },
   FAILED: { label: 'Falha', variant: 'destructive' },
@@ -37,9 +43,12 @@ const formatDateTime = (iso: string) =>
 
 const formatDuration = (start: string, end?: string) => {
   if (!end) return '—';
+
   const ms = new Date(end).getTime() - new Date(start).getTime();
+
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 };
 
@@ -92,9 +101,7 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
                 return (
                   <div key={log.id} className="rounded-lg border p-3 space-y-1.5 text-sm">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground font-mono">
-                        #{log.id}
-                      </span>
+                      <span className="text-xs text-muted-foreground font-mono">#{log.id}</span>
                       <Badge variant={meta.variant}>{meta.label}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">

@@ -25,6 +25,8 @@ import {
   ShPopoverTrigger,
   ShPopoverContent,
 } from '@lib/components/sh-popover/popover.component';
+import { ShBadge } from '@lib/components/sh-badge/badge.component';
+import { ScrollArea, ScrollBar } from '@lib/components/ui/scroll-area';
 import {
   ShTable,
   ShTableHeader,
@@ -65,9 +67,12 @@ const CUSTOM_FUNCTIONS: { label: string; value: CustomFunction }[] = [
 
 const parseNativeType = (fullType: string) => {
   const match = fullType.match(/^([^(]+)(?:\((.*)\))?$/);
+
   if (!match) return { base: fullType, params: [] as string[] };
+
   const base = match[1].trim();
   const params = match[2] ? match[2].split(',').map((param) => param.trim()) : [];
+
   return { base, params };
 };
 
@@ -216,7 +221,10 @@ export const MigrationNode = ({
     });
   };
 
-  const handleUpdateForeignKey = (index: number, updates: Partial<{ localColumn: string; parentColumn: string }>) => {
+  const handleUpdateForeignKey = (
+    index: number,
+    updates: Partial<{ localColumn: string; parentColumn: string }>,
+  ) => {
     const newFks = [...(node.foreignKeys || [])];
     newFks[index] = { ...newFks[index], ...updates };
     onChange({ ...node, foreignKeys: newFks });
@@ -269,9 +277,15 @@ export const MigrationNode = ({
       if (!nativeType) return '';
       // Remove AUTO_INCREMENT, PRIMARY KEY, UNIQUE, NOT NULL, etc.
       // Keeps only the base type and optional precision like VARCHAR(255) or DECIMAL(10,2)
-      return nativeType.split(/\s+/).filter(word => 
-        !['AUTO_INCREMENT', 'PRIMARY', 'KEY', 'UNIQUE', 'NOT', 'NULL'].includes(word.toUpperCase())
-      ).join(' ');
+      return nativeType
+        .split(/\s+/)
+        .filter(
+          (word) =>
+            !['AUTO_INCREMENT', 'PRIMARY', 'KEY', 'UNIQUE', 'NOT', 'NULL'].includes(
+              word.toUpperCase(),
+            ),
+        )
+        .join(' ');
     };
 
     const newField: CustomFieldDefinition = {
@@ -286,18 +300,18 @@ export const MigrationNode = ({
 
     // 1. Create the virtual field
     const newCustomFields = { ...node.customFields, [newField.column]: newField };
-    
+
     // 2. Update the localColumn in the current foreign key list
     const newFks = [...(node.foreignKeys || [])];
     newFks[index] = { ...newFks[index], localColumn };
 
     // 3. Batch update the node
-    onChange({ 
-      ...node, 
+    onChange({
+      ...node,
       customFields: newCustomFields,
-      foreignKeys: newFks
+      foreignKeys: newFks,
     });
-    
+
     toast.success(`Campo virtual '${localColumn}' criado para a FK`);
   };
 
@@ -451,19 +465,17 @@ export const MigrationNode = ({
                           }}
                         />
                       </ShTableHead>
-                      <ShTableHead className="w-12 h-10 px-3 text-center text-xs">PK</ShTableHead>
-                      <ShTableHead className="w-12 h-10 px-3 text-center text-xs">UQ</ShTableHead>
-                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[22%]">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[20%]">
                         Campo Fonte
                       </ShTableHead>
-                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[22%]">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[20%]">
                         Coluna Destino
                       </ShTableHead>
-                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[180px]">
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[140px]">
                         Tipo Canônico
                       </ShTableHead>
-                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 w-[190px]">
-                        Tipo Nativo
+                      <ShTableHead className="h-10 text-[12px] uppercase font-bold px-3 min-w-[200px]">
+                        Atributos e Tipo Nativo
                       </ShTableHead>
                       <ShTableHead className="w-12 h-10 px-3"></ShTableHead>
                     </ShTableRow>
@@ -491,30 +503,11 @@ export const MigrationNode = ({
                               }
                             />
                           </ShTableCell>
-                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
-                            <input
-                              type="checkbox"
-                              checked={mapping?.primaryKey || false}
-                              disabled={!included}
-                              onChange={(event) =>
-                                handleUpdateMapping(spColumn, { primaryKey: event.target.checked })
-                              }
-                              className="accent-primary h-4 w-4"
-                            />
-                          </ShTableCell>
-                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
-                            <input
-                              type="checkbox"
-                              checked={mapping?.uniqueKey || false}
-                              disabled={!included}
-                              onChange={(event) =>
-                                handleUpdateMapping(spColumn, { uniqueKey: event.target.checked })
-                              }
-                              className="accent-primary h-4 w-4"
-                            />
-                          </ShTableCell>
                           <ShTableCell className="py-2.5 px-3 overflow-hidden">
-                            <div className="font-mono text-[13px] font-medium leading-none flex items-center gap-1.5 truncate" title={spColumn}>
+                            <div
+                              className="font-mono text-[13px] font-medium leading-none flex items-center gap-1.5 truncate"
+                              title={spColumn}
+                            >
                               {spColumn}
                             </div>
 
@@ -566,109 +559,170 @@ export const MigrationNode = ({
                               ))}
                             </ShSelect>
                           </ShTableCell>
+
                           <ShTableCell className="py-2.5 px-3 overflow-hidden">
-                            <ShPopover>
-                              <ShPopoverTrigger asChild>
-                                <ShButton
-                                  variant="outline"
-                                  size="default"
-                                  disabled={!included}
-                                  className={cn(
-                                    'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2',
-                                    !mapping?.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
-                                    mapping?.nativeType && 'font-bold text-foreground border-primary/30',
-                                  )}
-                                >
-                                  <Settings2 className="w-5 h-5 mr-2 opacity-70 shrink-0" />
-                                  <span className="truncate">
-                                    {mapping?.nativeType || '(Canônico)'}
-                                  </span>
-                                </ShButton>
-                              </ShPopoverTrigger>
-                              <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
-                                <div className="space-y-1.5">
-                                  <ShLabel className="text-[11px] font-bold">Tipo Base</ShLabel>
-                                  <ShSelect
-                                    value={nativeBase || NONE_NATIVE}
-                                    onValueChange={(value) =>
+                            <div className="flex items-center gap-2">
+                              <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="flex w-max space-x-2 py-1">
+                                  {/* PK Badge */}
+                                  <ShBadge
+                                    variant={mapping?.primaryKey ? 'default' : 'outline'}
+                                    className={cn(
+                                      'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2',
+                                      !included && 'pointer-events-none opacity-50',
+                                      mapping?.primaryKey
+                                        ? 'border-primary bg-primary/20 text-primary'
+                                        : 'border-muted-foreground/20 text-muted-foreground',
+                                    )}
+                                    onClick={() =>
+                                      included &&
                                       handleUpdateMapping(spColumn, {
-                                        nativeType: value === NONE_NATIVE ? '' : value,
+                                        primaryKey: !mapping?.primaryKey,
                                       })
                                     }
                                   >
-                                    <ShSelectItem
-                                      value={NONE_NATIVE}
-                                      className="text-xs text-muted-foreground"
-                                    >
-                                      (Usar Tipo Canônico)
-                                    </ShSelectItem>
-                                    {adapterTypes?.nativeTypes.map((typeDef) => (
-                                      <ShSelectItem
-                                        key={typeDef.name}
-                                        value={typeDef.name}
-                                        className="text-xs"
+                                    PK
+                                  </ShBadge>
+
+                                  {/* UQ Badge */}
+                                  <ShBadge
+                                    variant={mapping?.uniqueKey ? 'secondary' : 'outline'}
+                                    className={cn(
+                                      'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2',
+                                      !included && 'pointer-events-none opacity-50',
+                                      mapping?.uniqueKey
+                                        ? 'border-secondary bg-secondary/20 text-secondary-foreground'
+                                        : 'border-muted-foreground/20 text-muted-foreground',
+                                    )}
+                                    onClick={() =>
+                                      included &&
+                                      handleUpdateMapping(spColumn, {
+                                        uniqueKey: !mapping?.uniqueKey,
+                                      })
+                                    }
+                                  >
+                                    UQ
+                                  </ShBadge>
+
+                                  {/* Native Type Popover Trigger Badge */}
+                                  <ShPopover>
+                                    <ShPopoverTrigger asChild>
+                                      <ShBadge
+                                        variant="outline"
+                                        className={cn(
+                                          'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2 font-mono whitespace-nowrap',
+                                          !included && 'pointer-events-none opacity-50',
+                                          mapping?.nativeType
+                                            ? 'border-primary/30 font-bold text-foreground'
+                                            : 'border-dashed border-muted-foreground/30 text-muted-foreground italic',
+                                        )}
                                       >
-                                        {typeDef.name}
-                                      </ShSelectItem>
-                                    ))}
-                                  </ShSelect>
-                                </div>
+                                        <Settings2 className="w-3 h-3 mr-1 opacity-70 shrink-0" />
+                                        {mapping?.nativeType || '(Configurar Nativo)'}
+                                      </ShBadge>
+                                    </ShPopoverTrigger>
+                                    <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
+                                      <div className="space-y-1.5">
+                                        <ShLabel className="text-[11px] font-bold">
+                                          Tipo Base
+                                        </ShLabel>
+                                        <ShSelect
+                                          value={nativeBase || NONE_NATIVE}
+                                          onValueChange={(value) =>
+                                            handleUpdateMapping(spColumn, {
+                                              nativeType: value === NONE_NATIVE ? '' : value,
+                                            })
+                                          }
+                                        >
+                                          <ShSelectItem
+                                            value={NONE_NATIVE}
+                                            className="text-xs text-muted-foreground"
+                                          >
+                                            (Usar Tipo Canônico)
+                                          </ShSelectItem>
+                                          {adapterTypes?.nativeTypes.map((typeDef) => (
+                                            <ShSelectItem
+                                              key={typeDef.name}
+                                              value={typeDef.name}
+                                              className="text-xs"
+                                            >
+                                              {typeDef.name}
+                                            </ShSelectItem>
+                                          ))}
+                                        </ShSelect>
+                                      </div>
 
-                                {nativeDefinition && nativeDefinition.params.length > 0 && (
-                                  <div className="space-y-3 pt-2 border-t">
-                                    <ShLabel className="text-[11px] font-bold">
-                                      Parâmetros do Tipo
-                                    </ShLabel>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {nativeDefinition.params.map((paramSpec, paramIndex) => {
-                                        const effectiveMax = paramSpec.max;
+                                      {nativeDefinition && nativeDefinition.params.length > 0 && (
+                                        <div className="space-y-3 pt-2 border-t">
+                                          <ShLabel className="text-[11px] font-bold">
+                                            Parâmetros do Tipo
+                                          </ShLabel>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            {nativeDefinition.params.map((paramSpec, paramIndex) => {
+                                              const effectiveMax = paramSpec.max;
 
-                                        return (
-                                          <div key={paramIndex} className="space-y-1">
-                                            <ShLabel className="text-[10px] text-muted-foreground uppercase">
-                                              {paramSpec.label} (min: {paramSpec.min}, max:{' '}
-                                              {effectiveMax})
-                                            </ShLabel>
-                                            <ShInput
-                                              type="number"
-                                              value={nativeParams[paramIndex] || ''}
-                                              onChange={(event) => {
-                                                const numericValue = parseInt(event.target.value);
-                                                if (isNaN(numericValue)) return;
+                                              return (
+                                                <div key={paramIndex} className="space-y-1">
+                                                  <ShLabel className="text-[10px] text-muted-foreground uppercase">
+                                                    {paramSpec.label} (min: {paramSpec.min}, max:{' '}
+                                                    {effectiveMax})
+                                                  </ShLabel>
+                                                  <ShInput
+                                                    type="number"
+                                                    value={nativeParams[paramIndex] || ''}
+                                                    onChange={(event) => {
+                                                      const numericValue = parseInt(
+                                                        event.target.value,
+                                                      );
+                                                      if (isNaN(numericValue)) return;
 
-                                                // Enforce range
-                                                const clampedValue = Math.max(
-                                                  paramSpec.min,
-                                                  Math.min(effectiveMax, numericValue),
-                                                );
+                                                      // Enforce range
+                                                      const clampedValue = Math.max(
+                                                        paramSpec.min,
+                                                        Math.min(effectiveMax, numericValue),
+                                                      );
 
-                                                const updatedParams = [...nativeParams];
-                                                while (
-                                                  updatedParams.length <
-                                                  nativeDefinition.params.length
-                                                )
-                                                  updatedParams.push('');
-                                                updatedParams[paramIndex] = String(clampedValue);
-                                                handleUpdateMapping(spColumn, {
-                                                  nativeType: formatNativeType(
-                                                    nativeBase,
-                                                    updatedParams,
-                                                  ),
-                                                });
-                                              }}
-                                              className="h-8 text-xs"
-                                              placeholder={`${paramSpec.min}-${effectiveMax}`}
-                                            />
+                                                      const updatedParams = [...nativeParams];
+                                                      while (
+                                                        updatedParams.length <
+                                                        nativeDefinition.params.length
+                                                      )
+                                                        updatedParams.push('');
+                                                      updatedParams[paramIndex] =
+                                                        String(clampedValue);
+                                                      handleUpdateMapping(spColumn, {
+                                                        nativeType: formatNativeType(
+                                                          nativeBase,
+                                                          updatedParams,
+                                                        ),
+                                                      });
+                                                    }}
+                                                    className="h-8 text-xs"
+                                                    placeholder={`${paramSpec.min}-${effectiveMax}`}
+                                                  />
+                                                </div>
+                                              );
+                                            })}
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </ShPopoverContent>
-                            </ShPopover>
+                                        </div>
+                                      )}
+                                    </ShPopoverContent>
+                                  </ShPopover>
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                              </ScrollArea>
+                            </div>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3"></ShTableCell>
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
+                            <ShButton
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled
+                              className="text-muted-foreground/30 h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </ShButton>
+                          </ShTableCell>
                         </ShTableRow>
                       );
                     })}
@@ -693,36 +747,12 @@ export const MigrationNode = ({
                           <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <Cpu className="w-4 h-4 text-primary opacity-60 mx-auto" />
                           </ShTableCell>
-                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
-                            <input
-                              type="checkbox"
-                              checked={customDef.primaryKey || false}
-                              onChange={(event) =>
-                                handleAddCustomField({
-                                  ...customDef,
-                                  primaryKey: event.target.checked,
-                                  uniqueKey: event.target.checked || customDef.uniqueKey,
-                                })
-                              }
-                              className="accent-primary h-4 w-4"
-                            />
-                          </ShTableCell>
-                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
-                            <input
-                              type="checkbox"
-                              checked={customDef.uniqueKey || false}
-                              onChange={(event) =>
-                                handleAddCustomField({
-                                  ...customDef,
-                                  uniqueKey: event.target.checked,
-                                })
-                              }
-                              className="accent-primary h-4 w-4"
-                            />
-                          </ShTableCell>
                           <ShTableCell className="py-2.5 px-3 overflow-hidden">
                             <div className="flex flex-col truncate">
-                              <div className="text-[12px] font-bold text-foreground flex items-center gap-1 truncate" title={customFunction?.label}>
+                              <div
+                                className="text-[12px] font-bold text-foreground flex items-center gap-1 truncate"
+                                title={customFunction?.label}
+                              >
                                 {customFunction?.label || customDef.function}
                               </div>
                               <div className="text-[11px] text-muted-foreground flex items-center gap-1 truncate mt-1">
@@ -764,94 +794,141 @@ export const MigrationNode = ({
                               ))}
                             </ShSelect>
                           </ShTableCell>
-                          <ShTableCell className="py-2.5 px-3">
-                            <ShPopover>
-                              <ShPopoverTrigger asChild>
-                                <ShButton
-                                  variant="outline"
-                                  size="default"
-                                  className={cn(
-                                    'h-10 w-full justify-start font-mono text-[13px] px-3 overflow-hidden border-2 border-primary/20',
-                                    !customDef.nativeType && 'text-muted-foreground italic border-dashed opacity-70',
-                                    customDef.nativeType && 'font-bold text-foreground',
-                                  )}
-                                >
-                                  <Settings2 className="w-5 h-5 mr-2 text-primary opacity-50 shrink-0" />
-                                  <span className="truncate">
-                                    {customDef.nativeType || '(Canônico)'}
-                                  </span>
-                                </ShButton>
-                              </ShPopoverTrigger>
-                              <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
-                                <div className="space-y-1.5">
-                                  <ShLabel className="text-[11px] font-bold">
-                                    Tipo Base (Virtual)
-                                  </ShLabel>
-                                  <ShSelect
-                                    value={nativeBase || NONE_NATIVE}
-                                    onValueChange={(value) =>
+
+                          <ShTableCell className="py-2.5 px-3 overflow-hidden">
+                            <div className="flex items-center gap-2">
+                              <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="flex w-max space-x-2 py-1">
+                                  {/* PK Badge */}
+                                  <ShBadge
+                                    variant={customDef.primaryKey ? 'default' : 'outline'}
+                                    className={cn(
+                                      'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2',
+                                      customDef.primaryKey
+                                        ? 'border-primary bg-primary/20 text-primary'
+                                        : 'border-muted-foreground/20 text-muted-foreground',
+                                    )}
+                                    onClick={() =>
                                       handleAddCustomField({
                                         ...customDef,
-                                        nativeType: value === NONE_NATIVE ? '' : value,
+                                        primaryKey: !customDef.primaryKey,
+                                        uniqueKey: !customDef.primaryKey || customDef.uniqueKey,
                                       })
                                     }
                                   >
-                                    <ShSelectItem
-                                      value={NONE_NATIVE}
-                                      className="text-xs text-muted-foreground"
-                                    >
-                                      (Canônico)
-                                    </ShSelectItem>
-                                    {adapterTypes?.nativeTypes.map((nt) => (
-                                      <ShSelectItem
-                                        key={nt.name}
-                                        value={nt.name}
-                                        className="text-xs"
+                                    PK
+                                  </ShBadge>
+
+                                  {/* UQ Badge */}
+                                  <ShBadge
+                                    variant={customDef.uniqueKey ? 'secondary' : 'outline'}
+                                    className={cn(
+                                      'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2',
+                                      customDef.uniqueKey
+                                        ? 'border-secondary bg-secondary/20 text-secondary-foreground'
+                                        : 'border-muted-foreground/20 text-muted-foreground',
+                                    )}
+                                    onClick={() =>
+                                      handleAddCustomField({
+                                        ...customDef,
+                                        uniqueKey: !customDef.uniqueKey,
+                                      })
+                                    }
+                                  >
+                                    UQ
+                                  </ShBadge>
+
+                                  {/* Native Type Popover (Custom) */}
+                                  <ShPopover>
+                                    <ShPopoverTrigger asChild>
+                                      <ShBadge
+                                        variant="outline"
+                                        className={cn(
+                                          'cursor-pointer select-none rounded-sm px-4 text-xs h-9 border-2 font-mono whitespace-nowrap',
+                                          customDef.nativeType
+                                            ? 'border-primary/30 font-bold text-foreground'
+                                            : 'border-dashed border-muted-foreground/30 text-muted-foreground italic',
+                                        )}
                                       >
-                                        {nt.name}
-                                      </ShSelectItem>
-                                    ))}
-                                  </ShSelect>
-                                </div>
-                                {nativeDefinition && nativeDefinition.params.length > 0 && (
-                                  <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                                    {nativeDefinition.params.map((paramSpec, paramIndex) => (
-                                      <div key={paramIndex} className="space-y-1">
-                                        <ShLabel className="text-[10px] uppercase">
-                                          {paramSpec.label}
+                                        <Settings2 className="w-3 h-3 mr-1 opacity-70 shrink-0" />
+                                        {customDef.nativeType || '(Configurar Nativo)'}
+                                      </ShBadge>
+                                    </ShPopoverTrigger>
+                                    <ShPopoverContent className="w-80 p-4 space-y-4" side="left">
+                                      <div className="space-y-1.5">
+                                        <ShLabel className="text-[11px] font-bold">
+                                          Tipo Base (Virtual)
                                         </ShLabel>
-                                        <ShInput
-                                          type="number"
-                                          value={nativeParams[paramIndex] || ''}
-                                          onChange={(event) => {
-                                            const numericValue = parseInt(event.target.value);
-                                            if (isNaN(numericValue)) return;
-                                            const clampedValue = Math.max(
-                                              paramSpec.min,
-                                              Math.min(paramSpec.max, numericValue),
-                                            );
-                                            const updatedParams = [...nativeParams];
-                                            while (
-                                              updatedParams.length < nativeDefinition.params.length
-                                            )
-                                              updatedParams.push('');
-                                            updatedParams[paramIndex] = String(clampedValue);
+                                        <ShSelect
+                                          value={nativeBase || NONE_NATIVE}
+                                          onValueChange={(value) =>
                                             handleAddCustomField({
                                               ...customDef,
-                                              nativeType: formatNativeType(
-                                                nativeBase,
-                                                updatedParams,
-                                              ),
-                                            });
-                                          }}
-                                          className="h-8 text-xs"
-                                        />
+                                              nativeType: value === NONE_NATIVE ? '' : value,
+                                            })
+                                          }
+                                        >
+                                          <ShSelectItem
+                                            value={NONE_NATIVE}
+                                            className="text-xs text-muted-foreground"
+                                          >
+                                            (Canônico)
+                                          </ShSelectItem>
+                                          {adapterTypes?.nativeTypes.map((nt) => (
+                                            <ShSelectItem
+                                              key={nt.name}
+                                              value={nt.name}
+                                              className="text-xs"
+                                            >
+                                              {nt.name}
+                                            </ShSelectItem>
+                                          ))}
+                                        </ShSelect>
                                       </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </ShPopoverContent>
-                            </ShPopover>
+                                      {nativeDefinition && nativeDefinition.params.length > 0 && (
+                                        <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                                          {nativeDefinition.params.map((paramSpec, paramIndex) => (
+                                            <div key={paramIndex} className="space-y-1">
+                                              <ShLabel className="text-[10px] uppercase">
+                                                {paramSpec.label}
+                                              </ShLabel>
+                                              <ShInput
+                                                type="number"
+                                                value={nativeParams[paramIndex] || ''}
+                                                onChange={(event) => {
+                                                  const numericValue = parseInt(event.target.value);
+                                                  if (isNaN(numericValue)) return;
+                                                  const clampedValue = Math.max(
+                                                    paramSpec.min,
+                                                    Math.min(paramSpec.max, numericValue),
+                                                  );
+                                                  const updatedParams = [...nativeParams];
+                                                  while (
+                                                    updatedParams.length <
+                                                    nativeDefinition.params.length
+                                                  )
+                                                    updatedParams.push('');
+                                                  updatedParams[paramIndex] = String(clampedValue);
+                                                  handleAddCustomField({
+                                                    ...customDef,
+                                                    nativeType: formatNativeType(
+                                                      nativeBase,
+                                                      updatedParams,
+                                                    ),
+                                                  });
+                                                }}
+                                                className="h-8 text-xs"
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </ShPopoverContent>
+                                  </ShPopover>
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                              </ScrollArea>
+                            </div>
                           </ShTableCell>
                           <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
                             <ShButton
@@ -909,7 +986,9 @@ export const MigrationNode = ({
                           <div className="flex gap-1">
                             <ShInput
                               value={fk.localColumn}
-                              onChange={(e) => handleUpdateForeignKey(index, { localColumn: e.target.value })}
+                              onChange={(e) =>
+                                handleUpdateForeignKey(index, { localColumn: e.target.value })
+                              }
                               onBlur={(e) => {
                                 const val = e.target.value;
                                 if (val && !currentColumns.includes(val) && fk.parentColumn) {
@@ -918,13 +997,19 @@ export const MigrationNode = ({
                               }}
                               placeholder="ex: fk_id_pai"
                               className={cn(
-                                "h-9 py-0 px-2 text-[13px] font-bold flex-1",
-                                !currentColumns.includes(fk.localColumn) && fk.localColumn && "border-destructive/50 bg-destructive/5"
+                                'h-9 py-0 px-2 text-[13px] font-bold flex-1',
+                                !currentColumns.includes(fk.localColumn) &&
+                                  fk.localColumn &&
+                                  'border-destructive/50 bg-destructive/5',
                               )}
                             />
                             <ShPopover>
                               <ShPopoverTrigger asChild>
-                                <ShButton variant="outline" size="icon-sm" className="h-9 w-9 border-primary/20 shrink-0">
+                                <ShButton
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="h-9 w-9 border-primary/20 shrink-0"
+                                >
                                   <ChevronDown className="w-4 h-4 opacity-50" />
                                 </ShButton>
                               </ShPopoverTrigger>
@@ -933,7 +1018,13 @@ export const MigrationNode = ({
                                   {fk.localColumn && !currentColumns.includes(fk.localColumn) && (
                                     <div
                                       className="px-2 py-2 text-xs text-primary font-bold hover:bg-primary/10 cursor-pointer rounded-sm border-b mb-1 flex items-center gap-2"
-                                      onClick={() => handleAutoCreateFKField(index, fk.localColumn, fk.parentColumn)}
+                                      onClick={() =>
+                                        handleAutoCreateFKField(
+                                          index,
+                                          fk.localColumn,
+                                          fk.parentColumn,
+                                        )
+                                      }
                                     >
                                       <Plus className="w-3 h-3" />
                                       Criar virtual: {fk.localColumn}
@@ -944,7 +1035,9 @@ export const MigrationNode = ({
                                       <div
                                         key={col}
                                         className="px-2 py-1.5 text-xs hover:bg-primary/10 cursor-pointer rounded-sm"
-                                        onClick={() => handleUpdateForeignKey(index, { localColumn: col })}
+                                        onClick={() =>
+                                          handleUpdateForeignKey(index, { localColumn: col })
+                                        }
                                       >
                                         {col}
                                       </div>
@@ -1130,7 +1223,8 @@ const CustomFieldForm = ({
               onAdd({
                 column: columnName || 'id',
                 type: canonicalType,
-                nativeType: selectedFunction === 'AUTO_INCREMENT' ? 'INT NOT NULL AUTO_INCREMENT' : '',
+                nativeType:
+                  selectedFunction === 'AUTO_INCREMENT' ? 'INT NOT NULL AUTO_INCREMENT' : '',
                 function: selectedFunction,
                 staticValue: selectedFunction === 'STATIC_VALUE' ? staticValue : undefined,
                 primaryKey: selectedFunction === 'AUTO_INCREMENT',

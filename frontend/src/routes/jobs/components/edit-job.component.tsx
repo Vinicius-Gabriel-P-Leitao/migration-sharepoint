@@ -119,7 +119,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
   return (
     <>
       <ShSheet open={open} onOpenChange={onOpenChange}>
-        <ShSheetContent side="right" className="sm:max-w-9xl w-full flex flex-col p-0">
+        <ShSheetContent side="right" className="sm:max-w-full w-full flex flex-col p-0">
           <div className="px-6 py-4 border-b bg-muted/30 shrink-0">
             <ShSheetHeader>
               <ShSheetTitle>Editar Job de Migração</ShSheetTitle>
@@ -137,7 +137,7 @@ export const EditJobSheet = ({ job, open, onOpenChange }: EditJobSheetProps) => 
               </div>
 
               {/* ── Geral ── */}
-              <ShTabsContent value="geral" className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+              <ShTabsContent value="geral" className="overflow-y-auto px-6 py-5 space-y-6">
                 <div className="space-y-1.5">
                   <ShLabel>Nome do Job</ShLabel>
                   <ShInput value={name} onChange={(event) => setName(event.target.value)} />
