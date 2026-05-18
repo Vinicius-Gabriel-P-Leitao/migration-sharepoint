@@ -29,6 +29,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
@@ -79,12 +80,27 @@ public class AuthService {
             throw new ForbiddenException("Acesso negado: O usuário não possui privilégios de administrador");
         }
 
-        List<String> setCookies = externalResponse.getHeaders().get(HttpHeaders.SET_COOKIE);
-        if (setCookies != null) {
-            setCookies.forEach(cookie -> authResponse.addHeader(HttpHeaders.SET_COOKIE, cookie));
-        }
+        normalizeAndAddCookies(externalResponse, authResponse);
 
         return authData;
+    }
+
+    private void normalizeAndAddCookies(ResponseEntity<?> externalResponse, HttpServletResponse authResponse) {
+        List<String> setCookies = externalResponse.getHeaders().get(HttpHeaders.SET_COOKIE);
+        if (setCookies != null) {
+            setCookies.forEach(cookie -> {
+                // Força Path=/ e mantém HttpOnly/Secure se existirem no original
+                String normalized = cookie.replaceAll("(?i)Path=[^;]+", "Path=/");
+                if (!normalized.toLowerCase().contains("path=/")) {
+                    normalized += "; Path=/";
+                }
+                // Garante que o refresh_token especificamente seja HttpOnly se o servidor de auth esqueceu
+                if (normalized.startsWith("refresh_token=") && !normalized.toLowerCase().contains("httponly")) {
+                    normalized += "; HttpOnly";
+                }
+                authResponse.addHeader(HttpHeaders.SET_COOKIE, normalized);
+            });
+        }
     }
 
     public Map<String, String> firstReset(String accessToken, FirstChangePasswordRequest resetRequest) {
@@ -114,7 +130,7 @@ public class AuthService {
                 .body(AuthenticationResponse.UserResponse.class);
     }
 
-    public AuthenticationResponse.UserSessionResponse refresh(
+    public AuthenticationResponse refresh(
             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         RestClient restClient = restClientBuilder.baseUrl(authServerUrl).build();
 
@@ -139,12 +155,9 @@ public class AuthService {
                 })
                 .toEntity(AuthenticationResponse.class);
 
-        List<String> setCookies = refreshResponse.getHeaders().get(HttpHeaders.SET_COOKIE);
-        if (setCookies != null) {
-            setCookies.forEach(cookie -> httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie));
-        }
+        normalizeAndAddCookies(refreshResponse, httpResponse);
 
-        return refreshResponse.getBody() != null ? refreshResponse.getBody().session() : null;
+        return refreshResponse.getBody();
     }
 
     public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
@@ -170,12 +183,14 @@ public class AuthService {
             }
         }
 
-        // Limpa cookies locais
-        Cookie cookie = new Cookie("refresh_token", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        httpResponse.addCookie(cookie);
+        // Limpa cookie local
+        ResponseCookie cookie = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
+        httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }
