@@ -11,6 +11,7 @@ import { ShBadge } from '@lib/components/sh-badge/badge.component';
 import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
 import { ShButton } from '@lib/components/sh-button/button.component';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, ScrollText } from 'lucide-react';
+import { cn } from '@lib/utils/cn.util';
 import type { LogResponse } from '../jobs.type';
 
 interface JobLogsSheetProps {
@@ -74,7 +75,7 @@ export const JobLogsSheet = ({ jobId, jobName, open, onOpenChange }: JobLogsShee
               onClick={() => refetch()}
               disabled={isFetching}
             >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
             </ShButton>
           </div>
         </ShSheetHeader>

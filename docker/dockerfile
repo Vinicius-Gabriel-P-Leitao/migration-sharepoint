@@ -24,8 +24,8 @@ COPY backend/settings.gradle.kts .
 COPY backend/migration migration
 
 # Create static resources directory and copy frontend build
-RUN mkdir -p migration/main/resources/static
-COPY --from=frontend-build /app/frontend/dist/ migration/main/resources/static/
+RUN mkdir -p migration/src/main/resources/static
+COPY --from=frontend-build /app/frontend/dist/ migration/src/main/resources/static/
 
 RUN chmod +x gradlew
 RUN ./gradlew :migration:bootJar --no-daemon

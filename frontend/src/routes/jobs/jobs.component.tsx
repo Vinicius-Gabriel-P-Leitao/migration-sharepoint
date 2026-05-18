@@ -41,6 +41,7 @@ import {
   Database,
   CalendarClock,
 } from 'lucide-react';
+import { cn } from '@lib/utils/cn.util';
 import { toast } from 'sonner';
 import { JobLogsSheet } from './components/job-logs.component';
 
@@ -110,7 +111,7 @@ export const JobsRoute = () => {
                   onClick={() => refetch()}
                   disabled={isFetching}
                 >
-                  <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
                 </ShButton>
               </ShTooltipTrigger>
               <ShTooltipContent>Atualizar</ShTooltipContent>

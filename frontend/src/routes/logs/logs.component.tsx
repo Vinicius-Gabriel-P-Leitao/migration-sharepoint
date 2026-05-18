@@ -6,6 +6,7 @@ import { ShBadge } from '@lib/components/sh-badge/badge.component';
 import { ShSkeleton } from '@lib/components/sh-skeleton/skeleton.component';
 import { ShCard, ShCardContent } from '@lib/components/sh-card/card.component';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, ScrollText } from 'lucide-react';
+import { cn } from '@lib/utils/cn.util';
 import type { LogResponse } from '@routes/jobs/jobs.type';
 
 const formatDate = (iso: string) =>
@@ -20,10 +21,13 @@ const formatDate = (iso: string) =>
 
 const formatDuration = (start: string, end?: string): string => {
   if (!end) return 'Em execução...';
+
   const ms = new Date(end).getTime() - new Date(start).getTime();
   if (ms < 0) return '—';
+
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s`;
+
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 };
 
@@ -63,7 +67,7 @@ export const LogsRoute = () => {
         </div>
         {selectedJobId && (
           <ShButton variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
           </ShButton>
         )}
       </div>
