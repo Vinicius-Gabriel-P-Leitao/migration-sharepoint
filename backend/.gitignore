@@ -38,3 +38,4 @@ out/
 /.env
 /data/sharepoint.db
 /migration/main/resources/sharepoint.db
+/migration/main/resources/static/*
