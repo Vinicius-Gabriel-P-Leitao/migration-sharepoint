@@ -713,7 +713,16 @@ export const MigrationNode = ({
                               </ScrollArea>
                             </div>
                           </ShTableCell>
-                          <ShTableCell className="py-1.5 px-3"></ShTableCell>
+                          <ShTableCell className="py-2.5 px-3 text-center overflow-hidden">
+                            <ShButton
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled
+                              className="text-muted-foreground/30 h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </ShButton>
+                          </ShTableCell>
                         </ShTableRow>
                       );
                     })}
